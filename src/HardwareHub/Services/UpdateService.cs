@@ -243,7 +243,7 @@ set /a waitcount=0
 tasklist /FI ""PID eq %APPPID%"" 2>nul | find ""%APPPID%"" >nul 2>&1
 if not errorlevel 1 (
     set /a waitcount+=1
-    echo [%date% %time%] [BAT] Processo %APPPID% ainda ativo (tentativa !waitcount!) >> ""%LOGFILE%""
+    echo [%date% %time%] [BAT] Processo %APPPID% ainda ativo ^(tentativa !waitcount!^) >> ""%LOGFILE%""
     if !waitcount! gtr 60 (
         echo [%date% %time%] [BAT] AVISO: Forcando encerramento do processo %APPPID% >> ""%LOGFILE%""
         taskkill /F /PID %APPPID% >nul 2>&1
