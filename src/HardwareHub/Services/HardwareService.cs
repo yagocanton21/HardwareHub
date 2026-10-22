@@ -104,17 +104,13 @@ namespace HardwareHub.Services
         {
             await Task.Run(() =>
             {
-                try
-                {
-                    if (!IsPawnIOInstalled)
-                    {
-                        InstallPawnIO();
-                    }
-                }
-                catch { }
+                // 1. Carrega especificações estáticas do hardware em paralelo (CPU, GPU, RAM, SO)
+                LoadStaticHardwareInfo();
 
+                // 2. Garante que o HWiNFO (se presente) esteja rodando em modo sensor
                 EnsureHwInfoBackendRunning();
 
+                // 3. Inicializa LibreHardwareMonitor para leitura de sensores em tempo real
                 try
                 {
                     var comp = new Computer
@@ -139,81 +135,89 @@ namespace HardwareHub.Services
                     }
                     catch { }
                 }
-
-                LoadStaticHardwareInfo();
             });
         }
 
         private void LoadStaticHardwareInfo()
         {
-            try
-            {
-                using var cpuSearcher = new ManagementObjectSearcher("SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor");
-                foreach (var obj in cpuSearcher.Get())
+            Parallel.Invoke(
+                () =>
                 {
-                    string rawName = obj["Name"]?.ToString() ?? "";
-                    _cachedCpuName = System.Text.RegularExpressions.Regex.Replace(rawName, @"\s+", " ").Trim();
-                    if (int.TryParse(obj["NumberOfCores"]?.ToString(), out int cores)) _cachedCpuCores = cores;
-                    if (int.TryParse(obj["NumberOfLogicalProcessors"]?.ToString(), out int threads)) _cachedCpuThreads = threads;
-                    if (uint.TryParse(obj["MaxClockSpeed"]?.ToString(), out uint mhz) && mhz > 0) _cachedCpuClockSpeedGhz = mhz / 1000.0;
-                    break;
-                }
-            }
-            catch { }
-
-            try
-            {
-                using var gpuSearcher = new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController");
-                foreach (var obj in gpuSearcher.Get())
-                {
-                    string name = obj["Name"]?.ToString()?.Trim() ?? "";
-                    if (!string.IsNullOrEmpty(name))
+                    try
                     {
-                        name = System.Text.RegularExpressions.Regex.Replace(name, @"\s+", " ").Trim();
-                        // Prioritize dedicated GPUs (NVIDIA or AMD) over Intel integrated GPU
-                        if (string.IsNullOrEmpty(_cachedGpuName) || 
-                            name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) || 
-                            name.Contains("GeForce", StringComparison.OrdinalIgnoreCase) || 
-                            name.Contains("Radeon", StringComparison.OrdinalIgnoreCase) ||
-                            name.Contains("AMD", StringComparison.OrdinalIgnoreCase))
+                        using var cpuSearcher = new ManagementObjectSearcher("SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor");
+                        foreach (var obj in cpuSearcher.Get())
                         {
-                            _cachedGpuName = name;
+                            string rawName = obj["Name"]?.ToString() ?? "";
+                            _cachedCpuName = System.Text.RegularExpressions.Regex.Replace(rawName, @"\s+", " ").Trim();
+                            if (int.TryParse(obj["NumberOfCores"]?.ToString(), out int cores)) _cachedCpuCores = cores;
+                            if (int.TryParse(obj["NumberOfLogicalProcessors"]?.ToString(), out int threads)) _cachedCpuThreads = threads;
+                            if (uint.TryParse(obj["MaxClockSpeed"]?.ToString(), out uint mhz) && mhz > 0) _cachedCpuClockSpeedGhz = mhz / 1000.0;
+                            break;
                         }
                     }
-                }
-            }
-            catch { }
-
-            try
-            {
-                using var memSearcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
-                foreach (var obj in memSearcher.Get())
+                    catch { }
+                },
+                () =>
                 {
-                    if (ulong.TryParse(obj["TotalPhysicalMemory"]?.ToString(), out ulong totalBytes))
+                    try
                     {
-                        _cachedRamTotalGb = totalBytes / (1024.0 * 1024.0 * 1024.0);
-                    }
-                }
-            }
-            catch { }
-
-            try
-            {
-                using var osSearcher = new ManagementObjectSearcher("SELECT Caption, LastBootUpTime FROM Win32_OperatingSystem");
-                foreach (var obj in osSearcher.Get())
-                {
-                    _cachedOsName = obj["Caption"]?.ToString()?.Trim() ?? "";
-                    if (obj["LastBootUpTime"] != null)
-                    {
-                        try
+                        using var gpuSearcher = new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController");
+                        foreach (var obj in gpuSearcher.Get())
                         {
-                            _systemBootTime = ManagementDateTimeConverter.ToDateTime(obj["LastBootUpTime"].ToString());
+                            string name = obj["Name"]?.ToString()?.Trim() ?? "";
+                            if (!string.IsNullOrEmpty(name))
+                            {
+                                name = System.Text.RegularExpressions.Regex.Replace(name, @"\s+", " ").Trim();
+                                if (string.IsNullOrEmpty(_cachedGpuName) || 
+                                    name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) || 
+                                    name.Contains("GeForce", StringComparison.OrdinalIgnoreCase) || 
+                                    name.Contains("Radeon", StringComparison.OrdinalIgnoreCase) ||
+                                    name.Contains("AMD", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    _cachedGpuName = name;
+                                }
+                            }
                         }
-                        catch { }
                     }
+                    catch { }
+                },
+                () =>
+                {
+                    try
+                    {
+                        using var memSearcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
+                        foreach (var obj in memSearcher.Get())
+                        {
+                            if (ulong.TryParse(obj["TotalPhysicalMemory"]?.ToString(), out ulong totalBytes))
+                            {
+                                _cachedRamTotalGb = totalBytes / (1024.0 * 1024.0 * 1024.0);
+                            }
+                        }
+                    }
+                    catch { }
+                },
+                () =>
+                {
+                    try
+                    {
+                        using var osSearcher = new ManagementObjectSearcher("SELECT Caption, LastBootUpTime FROM Win32_OperatingSystem");
+                        foreach (var obj in osSearcher.Get())
+                        {
+                            _cachedOsName = obj["Caption"]?.ToString()?.Trim() ?? "";
+                            if (obj["LastBootUpTime"] != null)
+                            {
+                                try
+                                {
+                                    _systemBootTime = ManagementDateTimeConverter.ToDateTime(obj["LastBootUpTime"].ToString());
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                    catch { }
                 }
-            }
-            catch { }
+            );
         }
 
         public (CpuMetrics Cpu, GpuMetrics Gpu, RamMetrics Ram, List<DiskMetrics> Disks, SystemOverview System) GetCurrentMetrics()

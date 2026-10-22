@@ -505,8 +505,12 @@ namespace HardwareHub.ViewModels
                 Interval = TimeSpan.FromSeconds(1.0)
             };
             _metricsTimer.Tick += (s, e) => UpdateHardwareMetrics();
+            _metricsTimer.Start();
 
-            // Inicialização em background: a janela renderiza imediatamente (< 100ms) sem congelar a UI
+            // Leitura imediata de métricas locais rápidas (discos C:/D:, uptime, memória RAM)
+            UpdateHardwareMetrics();
+
+            // Inicialização profunda de hardware em background (não bloqueia nada na tela)
             _ = Task.Run(async () =>
             {
                 await _hardwareService.InitializeAsync();
@@ -514,7 +518,6 @@ namespace HardwareHub.ViewModels
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     UpdateHardwareMetrics();
-                    _metricsTimer.Start();
                 });
 
                 _ = RefreshDisksHealthAsync();
