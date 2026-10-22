@@ -34,6 +34,13 @@ if ($LASTEXITCODE -eq 0) {
     $exe = Get-Item "$outputDir\HardwareHub.exe"
     $sizeMb = [Math]::Round($exe.Length / 1MB, 1)
 
+    # Sincroniza automaticamente com a pasta na Area de Trabalho, se ela existir
+    $desktopDir = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "HardwareHub_Portable")
+    if (Test-Path $desktopDir) {
+        Copy-Item -Path $exe.FullName -Destination "$desktopDir\HardwareHub.exe" -Force
+        Write-Host " -> Copiado automaticamente para a Area de Trabalho: $desktopDir\HardwareHub.exe" -ForegroundColor Green
+    }
+
     Write-Host "`n[2/2] Sucesso absoluto! Executavel gerado:" -ForegroundColor Green
     Write-Host " -> Arquivo: $($exe.FullName)" -ForegroundColor White
     Write-Host " -> Tamanho: $sizeMb MB (Totalmente autonomo)" -ForegroundColor White
