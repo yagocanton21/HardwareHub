@@ -87,5 +87,7 @@ namespace HardwareHub.Models
                 return $"{Uptime.Hours:D2}h {Uptime.Minutes:D2}m {Uptime.Seconds:D2}s";
             }
         }
+
+        public string TaskMgrUptime => $"{(int)Uptime.TotalDays}:{Uptime.Hours:D2}:{Uptime.Minutes:D2}:{Uptime.Seconds:D2}";
     }
 }
