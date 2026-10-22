@@ -259,6 +259,56 @@ namespace HardwareHub.Services
                     Description = "Cliente torrent de código aberto, leve, sem anúncios e com motor de busca integrado.",
                     WingetId = "qBittorrent.qBittorrent",
                     IconKind = "ArrowDownload24"
+                },
+                new()
+                {
+                    Id = "operagx",
+                    Name = "Opera GX",
+                    Publisher = "Opera Norway AS",
+                    Category = "Navegadores",
+                    Description = "Navegador especial para gamers com limitadores de CPU, RAM e largura de banda.",
+                    WingetId = "Opera.OperaGX",
+                    IconKind = "Globe24"
+                },
+                new()
+                {
+                    Id = "cpuz",
+                    Name = "CPUID CPU-Z",
+                    Publisher = "CPUID",
+                    Category = "Hardware & Diagnóstico",
+                    Description = "Utilitário clássico de identificação detalhada de processador, placa-mãe e memórias RAM.",
+                    WingetId = "CPUID.CPU-Z",
+                    IconKind = "DeveloperBoard24"
+                },
+                new()
+                {
+                    Id = "gpuz",
+                    Name = "TechPowerUp GPU-Z",
+                    Publisher = "TechPowerUp",
+                    Category = "Hardware & Diagnóstico",
+                    Description = "Ferramenta essencial e leve para diagnósticos e sensores de placas de vídeo NVIDIA, AMD e Intel.",
+                    WingetId = "TechPowerUp.GPU-Z",
+                    IconKind = "Video24"
+                },
+                new()
+                {
+                    Id = "crystaldiskinfo",
+                    Name = "CrystalDiskInfo",
+                    Publisher = "Crystal Dew World",
+                    Category = "Hardware & Diagnóstico",
+                    Description = "Monitor de saúde e integridade SMART de discos rígidos e unidades SSD NVMe/SATA.",
+                    WingetId = "CrystalDewWorld.CrystalDiskInfo",
+                    IconKind = "HardDrive24"
+                },
+                new()
+                {
+                    Id = "hwinfo",
+                    Name = "HWiNFO",
+                    Publisher = "REALiX s.r.o.",
+                    Category = "Hardware & Diagnóstico",
+                    Description = "Software profissional de análise profunda de hardware e telemetria de sensores.",
+                    WingetId = "REALiX.HWiNFO",
+                    IconKind = "Gauge24"
                 }
             };
         }
@@ -399,6 +449,35 @@ namespace HardwareHub.Services
                     if (installedNames.Any(n => n.Contains("PawnIO", StringComparison.OrdinalIgnoreCase))) return true;
                     break;
 
+                case "operagx":
+                    if (installedNames.Any(n => n.Contains("Opera GX", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(localAppData, @"Programs\Opera GX\launcher.exe"))) return true;
+                    break;
+
+                case "cpuz":
+                    if (installedNames.Any(n => n.Contains("CPU-Z", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(programFiles, @"CPUID\CPU-Z\cpuz.exe"))) return true;
+                    if (File.Exists(Path.Combine(programFilesX86, @"CPUID\CPU-Z\cpuz.exe"))) return true;
+                    break;
+
+                case "gpuz":
+                    if (installedNames.Any(n => n.Contains("GPU-Z", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(programFiles, @"TechPowerUp GPU-Z\GPU-Z.exe"))) return true;
+                    if (File.Exists(Path.Combine(programFilesX86, @"TechPowerUp GPU-Z\GPU-Z.exe"))) return true;
+                    break;
+
+                case "crystaldiskinfo":
+                    if (installedNames.Any(n => n.Contains("CrystalDiskInfo", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(programFiles, @"CrystalDiskInfo\DiskInfo64.exe"))) return true;
+                    if (File.Exists(Path.Combine(programFilesX86, @"CrystalDiskInfo\DiskInfo32.exe"))) return true;
+                    break;
+
+                case "hwinfo":
+                    if (installedNames.Any(n => n.Contains("HWiNFO", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(programFiles, @"HWiNFO64\HWiNFO64.EXE"))) return true;
+                    if (File.Exists(Path.Combine(programFilesX86, @"HWiNFO32\HWiNFO32.EXE"))) return true;
+                    break;
+
                 default:
                     if (installedNames.Any(n => n.Contains(item.Name, StringComparison.OrdinalIgnoreCase) || item.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
                         return true;
@@ -406,6 +485,47 @@ namespace HardwareHub.Services
             }
 
             return false;
+        }
+
+        public static string GetWingetPath()
+        {
+            // 1. Procura diretamente no PATH do sistema
+            try
+            {
+                var proc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "where.exe",
+                    Arguments = "winget",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                string? output = proc?.StandardOutput.ReadLine();
+                proc?.WaitForExit(2000);
+                if (!string.IsNullOrEmpty(output) && File.Exists(output))
+                    return output;
+            }
+            catch { }
+
+            // 2. Caminhos conhecidos no WindowsApps e LocalAppData
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string userWinget = Path.Combine(localAppData, @"Microsoft\WindowsApps\winget.exe");
+            if (File.Exists(userWinget)) return userWinget;
+
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            string windowsApps = Path.Combine(programFiles, "WindowsApps");
+            if (Directory.Exists(windowsApps))
+            {
+                try
+                {
+                    var wingetExes = Directory.GetFiles(windowsApps, "winget.exe", SearchOption.AllDirectories);
+                    var best = wingetExes.OrderByDescending(File.GetLastWriteTime).FirstOrDefault();
+                    if (!string.IsNullOrEmpty(best)) return best;
+                }
+                catch { }
+            }
+
+            return "winget";
         }
 
         private HashSet<string> GetInstalledSoftwareNamesFromRegistry()
@@ -468,14 +588,16 @@ namespace HardwareHub.Services
             {
                 try
                 {
-                    string sourceArg = item.WingetId.StartsWith("9N") ? "-s msstore" : "";
-                    string exactArg = item.WingetId.StartsWith("9N") ? "" : "--exact";
-                    string extraFlags = item.WingetId.StartsWith("9N") ? "" : "--force --ignore-security-hash";
+                    bool isMsStore = item.WingetId.StartsWith("9N", StringComparison.OrdinalIgnoreCase);
+                    string sourceArg = isMsStore ? "-s msstore" : "-s winget";
+                    string exactArg = isMsStore ? "" : "--exact";
+                    string flags = "--force --disable-interactivity --silent --accept-package-agreements --accept-source-agreements";
+                    string wingetPath = GetWingetPath();
 
                     var startInfo = new ProcessStartInfo
                     {
-                        FileName = "winget",
-                        Arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} {extraFlags} --silent --accept-package-agreements --accept-source-agreements",
+                        FileName = wingetPath,
+                        Arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} {flags}",
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
@@ -483,6 +605,7 @@ namespace HardwareHub.Services
                     };
 
                     using var process = new Process { StartInfo = startInfo };
+                    bool hasInstalledSuccessMessage = false;
 
                     process.OutputDataReceived += (s, e) =>
                     {
@@ -496,6 +619,16 @@ namespace HardwareHub.Services
                             else if (e.Data.Contains("Installing", StringComparison.OrdinalIgnoreCase) || e.Data.Contains("Instalando", StringComparison.OrdinalIgnoreCase))
                             {
                                 item.StatusMessage = "Instalando no Windows...";
+                            }
+
+                            if (e.Data.Contains("Successfully installed", StringComparison.OrdinalIgnoreCase) ||
+                                e.Data.Contains("Instalado com êxito", StringComparison.OrdinalIgnoreCase) ||
+                                e.Data.Contains("No available upgrade found", StringComparison.OrdinalIgnoreCase) ||
+                                e.Data.Contains("No newer package versions", StringComparison.OrdinalIgnoreCase) ||
+                                e.Data.Contains("already installed", StringComparison.OrdinalIgnoreCase) ||
+                                e.Data.Contains("já está instalado", StringComparison.OrdinalIgnoreCase))
+                            {
+                                hasInstalledSuccessMessage = true;
                             }
                         }
                     };
@@ -512,10 +645,22 @@ namespace HardwareHub.Services
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    process.WaitForExit(180000); // Aguarda até 3 minutos para download e instalação
+                    process.WaitForExit(300000); // Aguarda até 5 minutos para download e instalação
 
-                    // 0 = Sucesso, 3010 = Sucesso (reinicialização pendente), 0x8A15002B = Pacote já instalado
-                    bool isOk = process.HasExited && (process.ExitCode == 0 || process.ExitCode == 3010 || unchecked((uint)process.ExitCode) == 0x8A15002B);
+                    // 0 = Sucesso
+                    // 3010 = Sucesso (reinicialização pendente)
+                    // 1641 = Sucesso (reinicialização iniciada)
+                    // 0x8A15002B = Pacote já instalado
+                    // 0x8A15002D = Nenhuma atualização disponível (já instalado)
+                    // 0x8A150033 = Nenhuma ação necessária
+                    bool isOk = (process.HasExited && (
+                        process.ExitCode == 0 ||
+                        process.ExitCode == 3010 ||
+                        process.ExitCode == 1641 ||
+                        unchecked((uint)process.ExitCode) == 0x8A15002B ||
+                        unchecked((uint)process.ExitCode) == 0x8A15002D ||
+                        unchecked((uint)process.ExitCode) == 0x8A150033
+                    )) || hasInstalledSuccessMessage;
 
                     if (isOk)
                     {
@@ -651,7 +796,7 @@ namespace HardwareHub.Services
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = "winget",
+                        FileName = GetWingetPath(),
                         Arguments = $"search \"{query.Trim()}\" --accept-source-agreements -n 14",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,

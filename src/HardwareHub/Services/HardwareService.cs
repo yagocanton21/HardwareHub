@@ -64,15 +64,15 @@ namespace HardwareHub.Services
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "winget",
-                    Arguments = "install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements",
+                    FileName = SoftwareService.GetWingetPath(),
+                    Arguments = "install --id namazso.PawnIO -s winget -e --force --disable-interactivity --silent --accept-package-agreements --accept-source-agreements",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
 
                 using var proc = Process.Start(psi);
-                proc?.WaitForExit(45000); // aguarda até 45 segundos para concluir a instalação
+                proc?.WaitForExit(60000); // aguarda até 60 segundos para concluir a instalação
             }
             catch { }
         }

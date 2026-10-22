@@ -156,42 +156,94 @@ namespace HardwareHub.Services
 
             log?.Invoke("[ATUALIZAÇÃO] Download finalizado. Preparando substituição do executável...");
 
-            // Gera script auxiliar em batch para substituir o executável bloqueado e reabrir o app
-            string updaterBat = Path.Combine(Path.GetTempPath(), $"update_{Guid.NewGuid():N}.bat");
+            // Gera script auxiliar em PowerShell com fallback e log detalhado para garantir a substituição e reinicialização no Windows 10/11
+            string updaterPs1 = Path.Combine(Path.GetTempPath(), $"update_{Guid.NewGuid():N}.ps1");
             int currentPid = Environment.ProcessId;
+            string destExe = currentExePath;
+            string destFileName = Path.GetFileName(destExe);
+            string oldDestExe = currentExePath + ".old";
 
-            string batContent = $@"@echo off
-setlocal
-timeout /t 2 /nobreak > nul
-taskkill /F /PID {currentPid} > nul 2>&1
-timeout /t 1 /nobreak > nul
+            string ps1Content = $@"# HardwareHub Auto-Updater
+$logFile = ""$env:TEMP\HardwareHub_Update.log""
+function Write-Log($m) {{
+    $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $logFile -Value ""[$ts] $m"" -ErrorAction SilentlyContinue
+}}
 
-set /a retries=0
+Write-Log ""=======================================================""
+Write-Log ""Iniciando atualizacao do HardwareHub...""
+Write-Log ""PID anterior: {currentPid}""
+Write-Log ""Executavel destino: {destExe}""
+Write-Log ""Novo binario baixado: {tempUpdateExe}""
 
-:copy_loop
-copy /y ""{tempUpdateExe}"" ""{currentExePath}"" > nul 2>&1
-if errorlevel 1 (
-    set /a retries+=1
-    if %retries% lss 30 (
-        timeout /t 1 /nobreak > nul
-        goto copy_loop
-    )
-    exit /b 1
-)
+# 1. Aguarda o processo anterior encerrar completamente
+try {{
+    $proc = Get-Process -Id {currentPid} -ErrorAction SilentlyContinue
+    if ($proc) {{
+        Write-Log ""Aguardando processo {currentPid} encerrar...""
+        $proc.WaitForExit(10000)
+    }}
+}} catch {{
+    Write-Log ""Processo anterior ja finalizado ou sem permissao: $_""
+}}
 
-timeout /t 1 /nobreak > nul
-start """" ""{currentExePath}""
-del ""{tempUpdateExe}"" > nul 2>&1
-del ""%~f0"" > nul 2>&1
+Start-Sleep -Seconds 1
+
+# 2. Substituicao com ate 30 tentativas
+$dest = ""{destExe}""
+$oldDest = ""{oldDestExe}""
+$copied = $false
+
+for ($i = 1; $i -le 30; $i++) {{
+    try {{
+        if (Test-Path $dest) {{
+            Remove-Item -Path $oldDest -Force -ErrorAction SilentlyContinue
+            Rename-Item -Path $dest -NewName ([System.IO.Path]::GetFileName($oldDest)) -Force -ErrorAction SilentlyContinue
+        }}
+        Copy-Item -Path ""{tempUpdateExe}"" -Destination $dest -Force -ErrorAction Stop
+        Write-Log ""Executavel substituido com sucesso na tentativa $i.""
+        $copied = $true
+        break
+    }} catch {{
+        Write-Log ""Tentativa $i falhou: $_. Aguardando 1s...""
+        Start-Sleep -Seconds 1
+    }}
+}}
+
+# 3. Executa a nova versao atualizada
+if ($copied) {{
+    Write-Log ""Iniciando versao atualizada: $dest""
+    try {{
+        Start-Process -FilePath $dest
+    }} catch {{
+        Write-Log ""Falha com Start-Process ($_); tentando iniciar via cmd.exe...""
+        Start-Process ""cmd.exe"" -ArgumentList ""/c start """" """" `""$dest`""""""
+    }}
+}} else {{
+    Write-Log ""ERRO CRITICO: Nao foi possivel copiar a nova versao apos 30 tentativas.""
+}}
+
+# 4. Limpeza de arquivos temporarios
+Start-Sleep -Seconds 2
+Remove-Item -Path ""{tempUpdateExe}"" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $oldDest -Force -ErrorAction SilentlyContinue
+Write-Log ""Processo de atualizacao finalizado.""
+Remove-Item -Path $PSCommandPath -Force -ErrorAction SilentlyContinue
 ";
 
-            File.WriteAllText(updaterBat, batContent);
+            File.WriteAllText(updaterPs1, ps1Content, System.Text.Encoding.UTF8);
+
+            string powershellExe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe");
+            if (!File.Exists(powershellExe))
+            {
+                powershellExe = "powershell.exe";
+            }
 
             var psi = new ProcessStartInfo
             {
-                FileName = updaterBat,
-                UseShellExecute = true,
-                Verb = "runas",
+                FileName = powershellExe,
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{updaterPs1}\"",
+                UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
