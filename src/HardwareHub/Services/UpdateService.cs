@@ -222,7 +222,6 @@ namespace HardwareHub.Services
             string oldExePath = currentExePath + ".old";
 
             string batContent = $@"@echo off
-chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
 
 set ""LOGFILE={UpdateLogPath}""
@@ -246,7 +245,7 @@ if not errorlevel 1 (
     set /a waitcount+=1
     echo [%date% %time%] [BAT] Processo %APPPID% ainda ativo (tentativa !waitcount!) >> ""%LOGFILE%""
     if !waitcount! gtr 60 (
-        echo [%date% %time%] [BAT] AVISO: Forçando encerramento do processo %APPPID% >> ""%LOGFILE%""
+        echo [%date% %time%] [BAT] AVISO: Forcando encerramento do processo %APPPID% >> ""%LOGFILE%""
         taskkill /F /PID %APPPID% >nul 2>&1
     )
     ping 127.0.0.1 -n 2 >nul
@@ -368,7 +367,7 @@ REM Auto-deleta o script
             {
                 WriteUpdateLog($"AVISO: Falha ao iniciar diretamente ({ex.Message}), tentando fallback com cmd.exe...", log);
                 psi.FileName = "cmd.exe";
-                psi.Arguments = $"/c \"\"{updaterCmd}\"\"";
+                psi.Arguments = $"/c call \"{updaterCmd}\"";
                 scriptProcess = Process.Start(psi);
             }
 
