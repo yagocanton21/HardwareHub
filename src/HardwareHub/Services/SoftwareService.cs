@@ -7,6 +7,35 @@ namespace HardwareHub.Services
 {
     public class SoftwareService
     {
+        private static readonly object InstallLogLock = new();
+        private static readonly string InstallLogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HardwareHub",
+            "Logs");
+
+        /// <summary>
+        /// Registro persistente das execucoes do winget, separado por dia para suporte.
+        /// </summary>
+        public static string GetInstallLogPath(DateTime? date = null) =>
+            Path.Combine(InstallLogDirectory, $"package-install-{(date ?? DateTime.Now):yyyy-MM-dd}.log");
+
+        private static void WriteInstallLog(string operationId, string message)
+        {
+            try
+            {
+                lock (InstallLogLock)
+                {
+                    Directory.CreateDirectory(InstallLogDirectory);
+                    string safeMessage = message.Replace("\r", " ").Replace("\n", " ");
+                    File.AppendAllText(GetInstallLogPath(), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{operationId}] {safeMessage}{Environment.NewLine}");
+                }
+            }
+            catch
+            {
+                // Falha de log nao deve impedir a instalacao.
+            }
+        }
+
         public List<SoftwareItem> GetCatalog()
         {
             return new List<SoftwareItem>
@@ -570,9 +599,13 @@ namespace HardwareHub.Services
 
         public async Task<bool> InstallPackageAsync(SoftwareItem item, Action<string> logCallback)
         {
+            string operationId = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var stopwatch = Stopwatch.StartNew();
             item.Status = PackageStatus.Installing;
             item.StatusMessage = "Iniciando download...";
             item.IsIndeterminate = true;
+            WriteInstallLog(operationId, $"START packageId={item.WingetId}; name={item.Name}");
+            logCallback($"[DIAGNOSTICO {operationId}] Log persistente: {GetInstallLogPath()}");
             logCallback($"[INFO] Solicitando instalação do pacote {item.Name} ({item.WingetId})...");
 
             // Tratamento especial para o Microsoft 365 / Office:
@@ -584,7 +617,7 @@ namespace HardwareHub.Services
                 return await InstallOfficeDirectAsync(item, logCallback);
             }
 
-            return await Task.Run(() =>
+            return await Task.Run(async () =>
             {
                 try
                 {
@@ -593,15 +626,19 @@ namespace HardwareHub.Services
                     string exactArg = isMsStore ? "" : "--exact";
                     string flags = "--force --disable-interactivity --silent --accept-package-agreements --accept-source-agreements";
                     string wingetPath = GetWingetPath();
+                    string arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} {flags}";
+                    WriteInstallLog(operationId, $"COMMAND executable={wingetPath}; arguments={arguments}");
 
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = wingetPath,
-                        Arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} {flags}",
+                        Arguments = arguments,
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        CreateNoWindow = true
+                        CreateNoWindow = true,
+                        StandardOutputEncoding = System.Text.Encoding.UTF8,
+                        StandardErrorEncoding = System.Text.Encoding.UTF8
                     };
 
                     using var process = new Process { StartInfo = startInfo };
@@ -611,6 +648,7 @@ namespace HardwareHub.Services
                     {
                         if (!string.IsNullOrEmpty(e.Data))
                         {
+                            WriteInstallLog(operationId, $"STDOUT {e.Data}");
                             logCallback(e.Data);
                             if (e.Data.Contains("Downloading", StringComparison.OrdinalIgnoreCase) || e.Data.Contains("Baixando", StringComparison.OrdinalIgnoreCase))
                             {
@@ -637,15 +675,37 @@ namespace HardwareHub.Services
                     {
                         if (!string.IsNullOrEmpty(e.Data))
                         {
+                            WriteInstallLog(operationId, $"STDERR {e.Data}");
                             logCallback($"[STDERR] {e.Data}");
                         }
                     };
 
-                    process.Start();
+                    if (!process.Start())
+                    {
+                        throw new InvalidOperationException("O processo winget nao foi iniciado.");
+                    }
+
+                    WriteInstallLog(operationId, $"PROCESS_STARTED pid={process.Id}");
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    process.WaitForExit(300000); // Aguarda até 5 minutos para download e instalação
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+                    try
+                    {
+                        await process.WaitForExitAsync(timeout.Token);
+                    }
+                    catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+                    {
+                        WriteInstallLog(operationId, $"TIMEOUT elapsed={stopwatch.Elapsed}; killing process tree");
+                        try { process.Kill(entireProcessTree: true); } catch { }
+                        item.Status = PackageStatus.Failed;
+                        item.StatusMessage = "Tempo limite excedido (15 min)";
+                        item.IsIndeterminate = false;
+                        logCallback("[ERRO] O winget excedeu 15 minutos e foi encerrado. Consulte o log de diagnostico.");
+                        return false;
+                    }
+
+                    WriteInstallLog(operationId, $"PROCESS_EXIT code={process.ExitCode}; hex=0x{unchecked((uint)process.ExitCode):X8}; elapsed={stopwatch.Elapsed}");
 
                     // 0 = Sucesso
                     // 3010 = Sucesso (reinicialização pendente)
@@ -672,6 +732,7 @@ namespace HardwareHub.Services
                     }
                     else
                     {
+                        WriteInstallLog(operationId, $"FAILURE exitCode={process.ExitCode}; hex=0x{unchecked((uint)process.ExitCode):X8}; elapsed={stopwatch.Elapsed}");
                         item.Status = PackageStatus.Failed;
                         item.StatusMessage = $"Falha ({process.ExitCode})";
                         item.IsIndeterminate = false;
@@ -681,6 +742,7 @@ namespace HardwareHub.Services
                 }
                 catch (Exception ex)
                 {
+                    WriteInstallLog(operationId, $"EXCEPTION type={ex.GetType().Name}; message={ex.Message}; elapsed={stopwatch.Elapsed}");
                     item.Status = PackageStatus.Failed;
                     item.StatusMessage = "Erro ao executar winget";
                     item.IsIndeterminate = false;
