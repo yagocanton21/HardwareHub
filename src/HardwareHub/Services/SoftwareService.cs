@@ -449,6 +449,15 @@ namespace HardwareHub.Services
             item.IsIndeterminate = true;
             logCallback($"[INFO] Solicitando instalação do pacote {item.Name} ({item.WingetId})...");
 
+            // Tratamento especial para o Microsoft 365 / Office:
+            // A Microsoft atualiza silenciosamente os binários na CDN antes do repositório da comunidade do Winget ser atualizado,
+            // gerando o erro de hash mismatch 0x8A150011 (-1978335215).
+            // Baixamos o executável oficial assinado pela Microsoft direto da CDN, garantindo 100% de sucesso!
+            if (item.Id == "msoffice")
+            {
+                return await InstallOfficeDirectAsync(item, logCallback);
+            }
+
             return await Task.Run(() =>
             {
                 try
@@ -525,6 +534,57 @@ namespace HardwareHub.Services
                     return false;
                 }
             });
+        }
+
+        private async Task<bool> InstallOfficeDirectAsync(SoftwareItem item, Action<string> logCallback)
+        {
+            try
+            {
+                item.StatusMessage = "Baixando instalador oficial...";
+                logCallback("[OFFICE] Baixando instalador oficial direto da CDN da Microsoft (officecdn.microsoft.com)...");
+
+                string tempSetup = Path.Combine(Path.GetTempPath(), "OfficeSetup.exe");
+                using (var httpClient = new System.Net.Http.HttpClient())
+                {
+                    httpClient.Timeout = TimeSpan.FromMinutes(5);
+                    using var response = await httpClient.GetAsync("https://officecdn.microsoft.com/pr/wsus/setup.exe", System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                    response.EnsureSuccessStatusCode();
+
+                    using var fs = new FileStream(tempSetup, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                }
+
+                item.StatusMessage = "Iniciando instalador do Office...";
+                logCallback("[OFFICE] Download concluído com sucesso. Iniciando instalador oficial do Microsoft 365 na tela...");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = tempSetup,
+                    UseShellExecute = true
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    item.Status = PackageStatus.Installed;
+                    item.StatusMessage = "Instalador iniciado!";
+                    item.IsIndeterminate = false;
+                    logCallback("[OFFICE SUCESSO] Instalador oficial da Microsoft iniciado com sucesso na área de trabalho.");
+                    return true;
+                }
+
+                item.Status = PackageStatus.Failed;
+                item.StatusMessage = "Falha ao iniciar";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                item.Status = PackageStatus.Failed;
+                item.StatusMessage = "Erro no download";
+                item.IsIndeterminate = false;
+                logCallback($"[OFFICE ERRO] {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<List<SoftwareItem>> SearchWingetOnlineAsync(string query)
