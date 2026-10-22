@@ -37,8 +37,14 @@ if ($LASTEXITCODE -eq 0) {
     # Sincroniza automaticamente com a pasta na Area de Trabalho, se ela existir
     $desktopDir = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "HardwareHub_Portable")
     if (Test-Path $desktopDir) {
-        Copy-Item -Path $exe.FullName -Destination "$desktopDir\HardwareHub.exe" -Force
-        Write-Host " -> Copiado automaticamente para a Area de Trabalho: $desktopDir\HardwareHub.exe" -ForegroundColor Green
+        Get-Process -Name HardwareHub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 600
+        try {
+            Copy-Item -Path $exe.FullName -Destination "$desktopDir\HardwareHub.exe" -Force
+            Write-Host " -> Copiado automaticamente para a Area de Trabalho: $desktopDir\HardwareHub.exe" -ForegroundColor Green
+        } catch {
+            Write-Host " -> [AVISO] Feche o Hardware HUB aberto para atualizar a cópia da Área de Trabalho." -ForegroundColor Yellow
+        }
     }
 
     Write-Host "`n[2/2] Sucesso absoluto! Executavel gerado:" -ForegroundColor Green

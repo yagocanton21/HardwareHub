@@ -227,7 +227,7 @@ namespace HardwareHub.Services
                     Publisher = "AnyDesk Software GmbH",
                     Category = "Utilitários",
                     Description = "Acesso e suporte remoto veloz para administração de TI e manutenção de computadores.",
-                    WingetId = "AnyDeskSoftwareGmbH.AnyDesk",
+                    WingetId = "AnyDesk.AnyDesk",
                     IconKind = "Desktop24"
                 },
                 new()
@@ -388,6 +388,12 @@ namespace HardwareHub.Services
                     if (File.Exists(Path.Combine(programFiles, @"LibreOffice\program\soffice.exe"))) return true;
                     break;
 
+                case "anydesk":
+                    if (installedNames.Any(n => n.Contains("AnyDesk", StringComparison.OrdinalIgnoreCase))) return true;
+                    if (File.Exists(Path.Combine(programFilesX86, @"AnyDesk\AnyDesk.exe"))) return true;
+                    if (File.Exists(Path.Combine(programFiles, @"AnyDesk\AnyDesk.exe"))) return true;
+                    break;
+
                 case "pawnio":
                     if (HardwareService.IsPawnIOInstalled) return true;
                     if (installedNames.Any(n => n.Contains("PawnIO", StringComparison.OrdinalIgnoreCase))) return true;
@@ -506,12 +512,13 @@ namespace HardwareHub.Services
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    process.WaitForExit();
+                    // 0 = Sucesso, 3010 = Sucesso (reinicialização pendente), 0x8A15002B = Pacote já instalado
+                    bool isOk = process.ExitCode == 0 || process.ExitCode == 3010 || unchecked((uint)process.ExitCode) == 0x8A15002B;
 
-                    if (process.ExitCode == 0)
+                    if (isOk)
                     {
                         item.Status = PackageStatus.Installed;
-                        item.StatusMessage = "Instalado com sucesso!";
+                        item.StatusMessage = process.ExitCode == 3010 ? "Instalado (Reinício necessário)" : "Instalado com sucesso!";
                         item.IsIndeterminate = false;
                         logCallback($"[SUCESSO] {item.Name} instalado com êxito!");
                         return true;
