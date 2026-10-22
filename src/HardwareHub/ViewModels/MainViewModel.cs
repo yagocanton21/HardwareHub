@@ -801,22 +801,13 @@ namespace HardwareHub.ViewModels
                     AvailableUpdate = update;
                     if (update.IsAvailable)
                     {
-                        AppendLog($"[ATUALIZAÇÃO AUTOMÁTICA] Nova versão detectada: v{update.LatestVersion} ({update.FormattedSize}). Baixando automaticamente...");
+                        AppendLog($"[ATUALIZAÇÃO] Nova versão detectada: v{update.LatestVersion} ({update.FormattedSize}). Clique no banner 'Atualizar' para instalar.");
                     }
                     else if (!silent)
                     {
                         AppendLog($"[ATUALIZAÇÃO] Você já está executando a versão mais recente (v{update.CurrentVersion}).");
                     }
                 });
-
-                if (update.IsAvailable)
-                {
-                    // Atualização 100% automática: baixa e aplica sem necessitar de nenhum clique do usuário
-                    _ = System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
-                    {
-                        await ApplyUpdateAsync();
-                    });
-                }
             }
             catch (Exception ex)
             {

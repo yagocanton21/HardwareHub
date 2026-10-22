@@ -34,7 +34,21 @@ namespace HardwareHub.Services
 
         public static Version GetCurrentVersion()
         {
-            var ver = Assembly.GetExecutingAssembly().GetName().Version;
+            try
+            {
+                string exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+                {
+                    var vi = FileVersionInfo.GetVersionInfo(exePath);
+                    if (vi.FileMajorPart > 0 || vi.FileMinorPart > 0 || vi.FileBuildPart > 0)
+                    {
+                        return new Version(vi.FileMajorPart, vi.FileMinorPart, Math.Max(vi.FileBuildPart, 0));
+                    }
+                }
+            }
+            catch { }
+
+            var ver = Assembly.GetEntryAssembly()?.GetName().Version ?? Assembly.GetExecutingAssembly().GetName().Version;
             return ver != null ? new Version(ver.Major, ver.Minor, Math.Max(ver.Build, 0)) : new Version(1, 0, 1);
         }
 
@@ -148,22 +162,24 @@ namespace HardwareHub.Services
 
             string batContent = $@"@echo off
 setlocal
-set /a retries=0
-
-:wait_close
-timeout /t 1 /nobreak > nul
+timeout /t 2 /nobreak > nul
 taskkill /F /PID {currentPid} > nul 2>&1
+timeout /t 1 /nobreak > nul
+
+set /a retries=0
 
 :copy_loop
 copy /y ""{tempUpdateExe}"" ""{currentExePath}"" > nul 2>&1
 if errorlevel 1 (
     set /a retries+=1
-    if %retries% lss 15 (
+    if %retries% lss 30 (
         timeout /t 1 /nobreak > nul
         goto copy_loop
     )
+    exit /b 1
 )
 
+timeout /t 1 /nobreak > nul
 start """" ""{currentExePath}""
 del ""{tempUpdateExe}"" > nul 2>&1
 del ""%~f0"" > nul 2>&1
@@ -175,6 +191,7 @@ del ""%~f0"" > nul 2>&1
             {
                 FileName = updaterBat,
                 UseShellExecute = true,
+                Verb = "runas",
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
