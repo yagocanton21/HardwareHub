@@ -819,8 +819,9 @@
                                    FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Botão Importar Lista Winget -->
+                        <!-- Botão Importar Lista Winget / .ubundle -->
                         <Button Command="{Binding ImportWingetFileCommand}"
+                                ToolTip="Importar pacotes de programas (.ubundle do UniGetUI/WingetUI, .json do Winget, ou .txt)"
                                 Background="#312E81" Foreground="#C7D2FE" FontWeight="SemiBold" FontSize="12"
                                 Padding="14,9" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
                             <Button.Template>
@@ -837,7 +838,7 @@
                             </Button.Template>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="📥 " Margin="0,0,4,0" />
-                                <TextBlock Text="Importar Lista Winget" />
+                                <TextBlock Text="Importar Lista / .ubundle" />
                             </StackPanel>
                         </Button>
 

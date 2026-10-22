@@ -674,7 +674,7 @@ namespace HardwareHub.Services
             {
                 string content = File.ReadAllText(filePath).Trim();
 
-                // 1. Tenta fazer parse como JSON (formato padrão do `winget export`)
+                // 1. Tenta fazer parse como JSON (formato do `winget export`, UniGetUI / WingetUI `.ubundle` e JSONs customizados)
                 if (content.StartsWith("{") || content.StartsWith("["))
                 {
                     try
@@ -682,59 +682,54 @@ namespace HardwareHub.Services
                         using var doc = System.Text.Json.JsonDocument.Parse(content);
                         var root = doc.RootElement;
 
-                        // Caso 1: Formato padrão `winget export -o ...`
-                        // Estrutura: { "Sources": [ { "Packages": [ { "PackageIdentifier": "..." } ] } ] }
-                        if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("Sources", out var sourcesEl) && sourcesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        // Caso 1: Array direto (ex: UniGetUI .ubundle -> [ { "Id": "...", "Name": "...", "ManagerName": "..." }, ... ] ou [ "Id1", "Id2" ])
+                        if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
                         {
-                            foreach (var src in sourcesEl.EnumerateArray())
+                            foreach (var el in root.EnumerateArray())
                             {
-                                if (src.TryGetProperty("Packages", out var pkgsEl) && pkgsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                var (id, name) = ExtractPackageInfo(el);
+                                if (!string.IsNullOrWhiteSpace(id))
                                 {
-                                    foreach (var pkg in pkgsEl.EnumerateArray())
+                                    AddParsedItem(results, id, name);
+                                }
+                            }
+                        }
+                        // Caso 2: Objeto raiz (ex: winget export com "Sources", ou bundle com "packages" / "Packages" / "Items")
+                        else if (root.ValueKind == System.Text.Json.JsonValueKind.Object)
+                        {
+                            // 2A: Formato oficial `winget export`: { "Sources": [ { "Packages": [ { "PackageIdentifier": "..." } ] } ] }
+                            if (root.TryGetProperty("Sources", out var sourcesEl) && sourcesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                foreach (var src in sourcesEl.EnumerateArray())
+                                {
+                                    if (src.TryGetProperty("Packages", out var pkgsEl) && pkgsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
                                     {
-                                        if (pkg.TryGetProperty("PackageIdentifier", out var idProp))
+                                        foreach (var pkg in pkgsEl.EnumerateArray())
                                         {
-                                            string id = idProp.GetString() ?? "";
+                                            var (id, name) = ExtractPackageInfo(pkg);
                                             if (!string.IsNullOrWhiteSpace(id))
                                             {
-                                                AddParsedItem(results, id);
+                                                AddParsedItem(results, id, name);
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                        // Caso 2: Objeto com lista direta de "Packages"
-                        else if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("Packages", out var directPkgs) && directPkgs.ValueKind == System.Text.Json.JsonValueKind.Array)
-                        {
-                            foreach (var pkg in directPkgs.EnumerateArray())
+
+                            // 2B: Objeto com lista "packages", "Packages", "items" ou "Items"
+                            string[] listPropertyNames = { "packages", "Packages", "items", "Items", "software", "Software" };
+                            foreach (var propName in listPropertyNames)
                             {
-                                if (pkg.ValueKind == System.Text.Json.JsonValueKind.String)
+                                if (root.TryGetProperty(propName, out var listEl) && listEl.ValueKind == System.Text.Json.JsonValueKind.Array)
                                 {
-                                    AddParsedItem(results, pkg.GetString() ?? "");
-                                }
-                                else if (pkg.TryGetProperty("PackageIdentifier", out var idProp))
-                                {
-                                    AddParsedItem(results, idProp.GetString() ?? "");
-                                }
-                                else if (pkg.TryGetProperty("Id", out var id2Prop))
-                                {
-                                    AddParsedItem(results, id2Prop.GetString() ?? "");
-                                }
-                            }
-                        }
-                        // Caso 3: Array simples ["Google.Chrome", "7zip.7zip"]
-                        else if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
-                        {
-                            foreach (var el in root.EnumerateArray())
-                            {
-                                if (el.ValueKind == System.Text.Json.JsonValueKind.String)
-                                {
-                                    AddParsedItem(results, el.GetString() ?? "");
-                                }
-                                else if (el.TryGetProperty("PackageIdentifier", out var idProp))
-                                {
-                                    AddParsedItem(results, idProp.GetString() ?? "");
+                                    foreach (var pkg in listEl.EnumerateArray())
+                                    {
+                                        var (id, name) = ExtractPackageInfo(pkg);
+                                        if (!string.IsNullOrWhiteSpace(id))
+                                        {
+                                            AddParsedItem(results, id, name);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -742,7 +737,7 @@ namespace HardwareHub.Services
                     catch { }
                 }
 
-                // 2. Se não encontrou itens como JSON, faz parse linha por linha (formato TXT / YAML / lista)
+                // 2. Se não encontrou itens como JSON (ou se for formato TXT / YAML / lista)
                 if (results.Count == 0)
                 {
                     var lines = File.ReadAllLines(filePath);
@@ -752,10 +747,20 @@ namespace HardwareHub.Services
                         if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#") || line.StartsWith("//"))
                             continue;
 
-                        // Se for YAML do tipo: - PackageIdentifier: Google.Chrome
+                        // Se for YAML do tipo: - PackageIdentifier: Google.Chrome ou - Id: Google.Chrome
                         if (line.Contains("PackageIdentifier:", StringComparison.OrdinalIgnoreCase))
                         {
                             int idx = line.IndexOf("PackageIdentifier:", StringComparison.OrdinalIgnoreCase) + "PackageIdentifier:".Length;
+                            string val = line.Substring(idx).Trim(' ', '"', '\'', '-', ':');
+                            if (!string.IsNullOrWhiteSpace(val))
+                            {
+                                AddParsedItem(results, val);
+                                continue;
+                            }
+                        }
+                        if (line.Contains("Id:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int idx = line.IndexOf("Id:", StringComparison.OrdinalIgnoreCase) + "Id:".Length;
                             string val = line.Substring(idx).Trim(' ', '"', '\'', '-', ':');
                             if (!string.IsNullOrWhiteSpace(val))
                             {
@@ -778,14 +783,60 @@ namespace HardwareHub.Services
             return results;
         }
 
-        private static void AddParsedItem(List<SoftwareItem> list, string rawId)
+        private static (string? Id, string? Name) ExtractPackageInfo(System.Text.Json.JsonElement el)
+        {
+            if (el.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return (el.GetString(), null);
+            }
+
+            if (el.ValueKind != System.Text.Json.JsonValueKind.Object)
+                return (null, null);
+
+            string? id = null;
+            string? name = null;
+
+            // Busca identificador do pacote (Winget / UniGetUI .ubundle / Scoop / Choco)
+            string[] idPropertyNames = { "Id", "id", "PackageIdentifier", "packageIdentifier", "PackageId", "packageId" };
+            foreach (var propName in idPropertyNames)
+            {
+                if (el.TryGetProperty(propName, out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    string candidate = idProp.GetString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(candidate))
+                    {
+                        id = candidate;
+                        break;
+                    }
+                }
+            }
+
+            // Busca nome amigável do pacote
+            string[] namePropertyNames = { "Name", "name", "PackageName", "packageName", "Title", "title" };
+            foreach (var propName in namePropertyNames)
+            {
+                if (el.TryGetProperty(propName, out var nameProp) && nameProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    string candidate = nameProp.GetString()?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(candidate))
+                    {
+                        name = candidate;
+                        break;
+                    }
+                }
+            }
+
+            return (id, name);
+        }
+
+        private static void AddParsedItem(List<SoftwareItem> list, string rawId, string? customName = null)
         {
             string id = rawId.Trim().Trim('"', '\'');
             if (string.IsNullOrWhiteSpace(id) || list.Any(x => x.WingetId.Equals(id, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            string friendlyName = id;
-            if (id.Contains("."))
+            string friendlyName = !string.IsNullOrWhiteSpace(customName) ? customName.Trim() : id;
+            if (string.IsNullOrWhiteSpace(customName) && id.Contains("."))
             {
                 var parts = id.Split('.');
                 friendlyName = parts.Last();

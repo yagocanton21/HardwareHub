@@ -676,8 +676,9 @@ namespace HardwareHub.ViewModels
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Title = "Importar Lista de Programas do Winget",
-                Filter = "Arquivos Winget (*.json;*.txt;*.yaml;*.yml)|*.json;*.txt;*.yaml;*.yml|Todos os Arquivos (*.*)|*.*"
+                Title = "Importar Lista de Programas (Winget / UniGetUI)",
+                Filter = "Todos os Formatos Suportados (*.ubundle;*.json;*.txt;*.yaml;*.yml)|*.ubundle;*.json;*.txt;*.yaml;*.yml|Pacotes UniGetUI (*.ubundle)|*.ubundle|Arquivos Winget (*.json)|*.json|Arquivos de Texto e YAML (*.txt;*.yaml;*.yml)|*.txt;*.yaml;*.yml|Todos os Arquivos (*.*)|*.*",
+                DefaultExt = ".ubundle"
             };
 
             if (dialog.ShowDialog() == true)
