@@ -7,6 +7,15 @@ Write-Host "==========================================================" -Foregro
 
 $outputDir = "$PSScriptRoot\dist\HardwareHub_Portable"
 
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    if (Test-Path "$env:ProgramFiles\dotnet\dotnet.exe") {
+        $env:PATH = "$env:ProgramFiles\dotnet;$env:PATH"
+    }
+}
+
+Get-Process -Name HardwareHub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 600
+
 Write-Host "`n[1/2] Compilando e embutindo .NET 9, bibliotecas e sensores..." -ForegroundColor Yellow
 
 dotnet publish "$PSScriptRoot\src\HardwareHub\HardwareHub.csproj" `

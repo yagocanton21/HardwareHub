@@ -455,11 +455,12 @@ namespace HardwareHub.Services
                 {
                     string sourceArg = item.WingetId.StartsWith("9N") ? "-s msstore" : "";
                     string exactArg = item.WingetId.StartsWith("9N") ? "" : "--exact";
+                    string extraFlags = item.WingetId.StartsWith("9N") ? "" : "--force --ignore-security-hash";
 
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = "winget",
-                        Arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} --silent --accept-package-agreements --accept-source-agreements",
+                        Arguments = $"install --id \"{item.WingetId}\" {sourceArg} {exactArg} {extraFlags} --silent --accept-package-agreements --accept-source-agreements",
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
@@ -601,6 +602,145 @@ namespace HardwareHub.Services
                 catch { }
 
                 return list;
+            });
+        }
+
+        public List<SoftwareItem> ParseWingetFile(string filePath)
+        {
+            var results = new List<SoftwareItem>();
+            if (!File.Exists(filePath)) return results;
+
+            try
+            {
+                string content = File.ReadAllText(filePath).Trim();
+
+                // 1. Tenta fazer parse como JSON (formato padrão do `winget export`)
+                if (content.StartsWith("{") || content.StartsWith("["))
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(content);
+                        var root = doc.RootElement;
+
+                        // Caso 1: Formato padrão `winget export -o ...`
+                        // Estrutura: { "Sources": [ { "Packages": [ { "PackageIdentifier": "..." } ] } ] }
+                        if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("Sources", out var sourcesEl) && sourcesEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var src in sourcesEl.EnumerateArray())
+                            {
+                                if (src.TryGetProperty("Packages", out var pkgsEl) && pkgsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                                {
+                                    foreach (var pkg in pkgsEl.EnumerateArray())
+                                    {
+                                        if (pkg.TryGetProperty("PackageIdentifier", out var idProp))
+                                        {
+                                            string id = idProp.GetString() ?? "";
+                                            if (!string.IsNullOrWhiteSpace(id))
+                                            {
+                                                AddParsedItem(results, id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Caso 2: Objeto com lista direta de "Packages"
+                        else if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("Packages", out var directPkgs) && directPkgs.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var pkg in directPkgs.EnumerateArray())
+                            {
+                                if (pkg.ValueKind == System.Text.Json.JsonValueKind.String)
+                                {
+                                    AddParsedItem(results, pkg.GetString() ?? "");
+                                }
+                                else if (pkg.TryGetProperty("PackageIdentifier", out var idProp))
+                                {
+                                    AddParsedItem(results, idProp.GetString() ?? "");
+                                }
+                                else if (pkg.TryGetProperty("Id", out var id2Prop))
+                                {
+                                    AddParsedItem(results, id2Prop.GetString() ?? "");
+                                }
+                            }
+                        }
+                        // Caso 3: Array simples ["Google.Chrome", "7zip.7zip"]
+                        else if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var el in root.EnumerateArray())
+                            {
+                                if (el.ValueKind == System.Text.Json.JsonValueKind.String)
+                                {
+                                    AddParsedItem(results, el.GetString() ?? "");
+                                }
+                                else if (el.TryGetProperty("PackageIdentifier", out var idProp))
+                                {
+                                    AddParsedItem(results, idProp.GetString() ?? "");
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // 2. Se não encontrou itens como JSON, faz parse linha por linha (formato TXT / YAML / lista)
+                if (results.Count == 0)
+                {
+                    var lines = File.ReadAllLines(filePath);
+                    foreach (var rawLine in lines)
+                    {
+                        string line = rawLine.Trim();
+                        if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#") || line.StartsWith("//"))
+                            continue;
+
+                        // Se for YAML do tipo: - PackageIdentifier: Google.Chrome
+                        if (line.Contains("PackageIdentifier:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int idx = line.IndexOf("PackageIdentifier:", StringComparison.OrdinalIgnoreCase) + "PackageIdentifier:".Length;
+                            string val = line.Substring(idx).Trim(' ', '"', '\'', '-', ':');
+                            if (!string.IsNullOrWhiteSpace(val))
+                            {
+                                AddParsedItem(results, val);
+                                continue;
+                            }
+                        }
+
+                        // Se for formato de lista simples: "Google.Chrome" ou "1. Google.Chrome"
+                        string clean = line.TrimStart('-', '*', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ')', ' ');
+                        if (!string.IsNullOrWhiteSpace(clean) && !clean.Contains(" "))
+                        {
+                            AddParsedItem(results, clean);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return results;
+        }
+
+        private static void AddParsedItem(List<SoftwareItem> list, string rawId)
+        {
+            string id = rawId.Trim().Trim('"', '\'');
+            if (string.IsNullOrWhiteSpace(id) || list.Any(x => x.WingetId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            string friendlyName = id;
+            if (id.Contains("."))
+            {
+                var parts = id.Split('.');
+                friendlyName = parts.Last();
+            }
+
+            list.Add(new SoftwareItem
+            {
+                Id = id.ToLowerInvariant(),
+                Name = friendlyName,
+                Publisher = "Lista Importada",
+                Category = "Importados",
+                WingetId = id,
+                Description = $"Pacote importado: {id}. Instalação automatizada via Winget.",
+                Status = PackageStatus.Available,
+                StatusMessage = "Disponível para instalar"
             });
         }
     }

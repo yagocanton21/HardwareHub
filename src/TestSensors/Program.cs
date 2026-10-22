@@ -10,17 +10,38 @@ class Program
         Console.WriteLine("Iniciando diagnstico detalhado...");
         try
         {
-            var computer = new Computer { IsCpuEnabled = true };
+            var computer = new Computer 
+            { 
+                IsStorageEnabled = true,
+                IsCpuEnabled = true,
+                IsGpuEnabled = true 
+            };
             computer.Open();
             Console.WriteLine("Computer.Open() OK");
 
-            foreach (var hw in computer.Hardware)
+            foreach (var name in Enum.GetNames(typeof(SensorType)))
             {
-                hw.Update();
-                Console.WriteLine($"HW: {hw.Name} ({hw.HardwareType})");
-                foreach (var s in hw.Sensors)
+                Console.WriteLine($"SensorType: {name}");
+            }
+
+            var asm = typeof(Computer).Assembly;
+            var diskInfoSmartAttrType = asm.GetType("DiskInfoToolkit.SmartAttribute");
+            if (diskInfoSmartAttrType != null)
+            {
+                Console.WriteLine("=== DiskInfoToolkit.SmartAttribute Properties ===");
+                foreach (var p in diskInfoSmartAttrType.GetProperties())
                 {
-                    Console.WriteLine($"  Sensor: {s.Name} | {s.SensorType} | Value: '{s.Value}'");
+                    Console.WriteLine($"DiskInfoSmart Prop: {p.Name} ({p.PropertyType})");
+                }
+            }
+
+            var diskInfoStorageType = asm.GetType("DiskInfoToolkit.Storage");
+            if (diskInfoStorageType != null)
+            {
+                Console.WriteLine("=== DiskInfoToolkit.Storage Properties ===");
+                foreach (var p in diskInfoStorageType.GetProperties())
+                {
+                    Console.WriteLine($"DiskInfoStorage Prop: {p.Name} ({p.PropertyType})");
                 }
             }
         }

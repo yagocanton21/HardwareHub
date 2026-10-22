@@ -38,6 +38,7 @@ namespace HardwareHub.ViewModels
         private readonly MaintenanceService _maintenanceService;
         private readonly StressTestService _stressTestService;
         private readonly GpuRenderService _gpuRenderService;
+        private readonly UpdateService _updateService;
         private readonly DispatcherTimer _metricsTimer;
 
         private string _currentSection = "Dashboard";
@@ -49,6 +50,11 @@ namespace HardwareHub.ViewModels
         private string _selectedCategory = "Todos";
         private string _logOutput = "Console de atividades iniciado...\n";
         private bool _isUpdatingSoftware = false;
+
+        private UpdateInfo? _availableUpdate;
+        private bool _isDownloadingUpdate;
+        private double _updateDownloadProgress;
+        private string _updateButtonText = "⚡ Atualizar Agora";
 
         public ObservableCollection<DiskMetrics> Disks { get; } = new();
         public ObservableCollection<DiskHealthInfo> PhysicalDisks { get; } = new();
@@ -190,10 +196,93 @@ namespace HardwareHub.ViewModels
 
         public bool IsPawnIOMissing => !HardwareService.IsPawnIOInstalled;
 
+        public UpdateInfo? AvailableUpdate
+        {
+            get => _availableUpdate;
+            set
+            {
+                _availableUpdate = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsUpdateAvailable));
+                OnPropertyChanged(nameof(LatestVersionText));
+                OnPropertyChanged(nameof(UpdateChangelogSummary));
+                OnPropertyChanged(nameof(CanApplyUpdate));
+            }
+        }
+
+        public bool IsUpdateAvailable => _availableUpdate?.IsAvailable ?? false;
+        public string LatestVersionText => _availableUpdate != null ? $"v{_availableUpdate.LatestVersion} ({_availableUpdate.FormattedSize})" : "";
+        public string UpdateChangelogSummary => !string.IsNullOrWhiteSpace(_availableUpdate?.Changelog) ? _availableUpdate.Changelog.Trim() : "Melhorias de desempenho e correções de estabilidade.";
+
+        public bool IsDownloadingUpdate
+        {
+            get => _isDownloadingUpdate;
+            set
+            {
+                if (_isDownloadingUpdate != value)
+                {
+                    _isDownloadingUpdate = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanApplyUpdate));
+                }
+            }
+        }
+
+        public double UpdateDownloadProgress
+        {
+            get => _updateDownloadProgress;
+            set
+            {
+                if (Math.Abs(_updateDownloadProgress - value) > 0.01)
+                {
+                    _updateDownloadProgress = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string UpdateButtonText
+        {
+            get => _updateButtonText;
+            set
+            {
+                if (_updateButtonText != value)
+                {
+                    _updateButtonText = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool CanApplyUpdate => !_isDownloadingUpdate && IsUpdateAvailable;
+
+        private bool _isBatchInstalling = false;
+        public bool IsBatchInstalling
+        {
+            get => _isBatchInstalling;
+            set
+            {
+                if (_isBatchInstalling != value)
+                {
+                    _isBatchInstalling = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CanBatchInstall));
+                }
+            }
+        }
+
+        public bool HasImportedApps => AllSoftware.Any(x => x.Category == "Importados");
+        public int ImportedCount => AllSoftware.Count(x => x.Category == "Importados");
+        public bool CanBatchInstall => !_isBatchInstalling && HasImportedApps;
+
         public ICommand NavigateCommand { get; }
         public ICommand InstallAppCommand { get; }
+        public ICommand ImportWingetFileCommand { get; }
+        public ICommand InstallAllImportedCommand { get; }
         public ICommand RefreshSoftwareStatusCommand { get; }
         public ICommand ClearLogsCommand { get; }
+        public ICommand CheckForUpdatesCommand { get; }
+        public ICommand ApplyUpdateCommand { get; }
         public ICommand InstallPawnIOCommand { get; }
         public ICommand RefreshDisksCommand { get; }
         public ICommand BenchmarkDiskCommand { get; }
@@ -246,6 +335,7 @@ namespace HardwareHub.ViewModels
             _maintenanceService = new MaintenanceService();
             _stressTestService = new StressTestService();
             _gpuRenderService = new GpuRenderService();
+            _updateService = new UpdateService();
 
             _stressTestService.StateChanged += () =>
             {
@@ -319,7 +409,11 @@ namespace HardwareHub.ViewModels
             }, p => p is SoftwareItem item && item.CanInstall);
 
             RefreshSoftwareStatusCommand = new RelayCommand(async _ => await RefreshInstalledStatusAsync());
+            ImportWingetFileCommand = new RelayCommand(_ => ImportWingetFile());
+            InstallAllImportedCommand = new RelayCommand(async _ => await InstallAllImportedAsync(), _ => CanBatchInstall);
             ClearLogsCommand = new RelayCommand(_ => LogOutput = "");
+            CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(silent: false));
+            ApplyUpdateCommand = new RelayCommand(async _ => await ApplyUpdateAsync(), _ => CanApplyUpdate);
 
             RefreshDisksCommand = new RelayCommand(async _ => await RefreshDisksHealthAsync());
             BenchmarkDiskCommand = new RelayCommand(async p =>
@@ -425,6 +519,7 @@ namespace HardwareHub.ViewModels
 
                 _ = RefreshDisksHealthAsync();
                 _ = RefreshInstalledStatusAsync();
+                _ = CheckForUpdatesAsync(silent: true);
             });
         }
 
@@ -450,6 +545,12 @@ namespace HardwareHub.ViewModels
                     {
                         Disks[i] = disks[i];
                     }
+                }
+
+                // Atualiza sensores de discos físicos em tempo real se já carregados
+                if (PhysicalDisks.Count > 0)
+                {
+                    _hardwareService.EnrichDisksWithSensors(PhysicalDisks);
                 }
             }
             catch (Exception ex)
@@ -510,6 +611,8 @@ namespace HardwareHub.ViewModels
                 await Task.WhenAll(fetchTask, minWaitTask);
 
                 var disks = await fetchTask;
+                _hardwareService.EnrichDisksWithSensors(disks);
+
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     PhysicalDisks.Clear();
@@ -569,6 +672,85 @@ namespace HardwareHub.ViewModels
             }
         }
 
+        private void ImportWingetFile()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Importar Lista de Programas do Winget",
+                Filter = "Arquivos Winget (*.json;*.txt;*.yaml;*.yml)|*.json;*.txt;*.yaml;*.yml|Todos os Arquivos (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                AppendLog($"[IMPORTAÇÃO] Lendo arquivo '{Path.GetFileName(dialog.FileName)}'...");
+                var items = _softwareService.ParseWingetFile(dialog.FileName);
+
+                if (items.Count == 0)
+                {
+                    AppendLog("[AVISO] Nenhum pacote válido foi identificado no arquivo fornecido.");
+                    return;
+                }
+
+                if (!Categories.Contains("Importados"))
+                {
+                    Categories.Add("Importados");
+                }
+
+                int added = 0;
+                foreach (var item in items)
+                {
+                    var existing = AllSoftware.FirstOrDefault(x => x.WingetId.Equals(item.WingetId, StringComparison.OrdinalIgnoreCase));
+                    if (existing == null)
+                    {
+                        AllSoftware.Add(item);
+                        added++;
+                    }
+                    else
+                    {
+                        existing.Category = "Importados";
+                    }
+                }
+
+                SelectedCategory = "Importados";
+                ApplySoftwareFilters();
+                OnPropertyChanged(nameof(HasImportedApps));
+                OnPropertyChanged(nameof(ImportedCount));
+                OnPropertyChanged(nameof(CanBatchInstall));
+
+                AppendLog($"[IMPORTAÇÃO] {items.Count} programa(s) importado(s) com sucesso ({added} novos adicionados)! Categoria 'Importados' selecionada.");
+                _ = RefreshInstalledStatusAsync();
+            }
+        }
+
+        private async Task InstallAllImportedAsync()
+        {
+            var queue = AllSoftware.Where(x => x.Category == "Importados" && x.CanInstall).ToList();
+            if (queue.Count == 0)
+            {
+                AppendLog("[INFO] Todos os programas importados já estão instalados ou em andamento.");
+                return;
+            }
+
+            IsBatchInstalling = true;
+            AppendLog($"\n[INSTALAÇÃO EM LOTE] Iniciando instalação sequencial de {queue.Count} programas da lista importada...");
+
+            try
+            {
+                int current = 1;
+                foreach (var item in queue)
+                {
+                    AppendLog($"\n[LOTE {current}/{queue.Count}] Instalando {item.Name} ({item.WingetId})...");
+                    await InstallAppAsync(item);
+                    current++;
+                }
+                AppendLog($"\n[INSTALAÇÃO EM LOTE] Processo concluído para todos os {queue.Count} programas!");
+            }
+            finally
+            {
+                IsBatchInstalling = false;
+            }
+        }
+
         private void ApplySoftwareFilters()
         {
             FilteredSoftware.Clear();
@@ -598,6 +780,81 @@ namespace HardwareHub.ViewModels
         {
             string time = DateTime.Now.ToString("HH:mm:ss");
             LogOutput += $"[{time}] {message}\n";
+        }
+
+        public async Task CheckForUpdatesAsync(bool silent = false)
+        {
+            try
+            {
+                if (!silent)
+                {
+                    AppendLog("[ATUALIZAÇÃO] Verificando se há novas versões disponíveis no GitHub...");
+                }
+
+                var update = await _updateService.CheckForUpdatesAsync();
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    AvailableUpdate = update;
+                    if (update.IsAvailable)
+                    {
+                        AppendLog($"[ATUALIZAÇÃO AUTOMÁTICA] Nova versão detectada: v{update.LatestVersion} ({update.FormattedSize}). Baixando automaticamente...");
+                    }
+                    else if (!silent)
+                    {
+                        AppendLog($"[ATUALIZAÇÃO] Você já está executando a versão mais recente (v{update.CurrentVersion}).");
+                    }
+                });
+
+                if (update.IsAvailable)
+                {
+                    // Atualização 100% automática: baixa e aplica sem necessitar de nenhum clique do usuário
+                    _ = System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+                    {
+                        await ApplyUpdateAsync();
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!silent)
+                {
+                    AppendLog($"[ERRO AO VERIFICAR ATUALIZAÇÃO] {ex.Message}");
+                }
+            }
+        }
+
+        public async Task ApplyUpdateAsync()
+        {
+            if (_availableUpdate == null || string.IsNullOrEmpty(_availableUpdate.DownloadUrl) || IsDownloadingUpdate)
+                return;
+
+            IsDownloadingUpdate = true;
+            UpdateDownloadProgress = 0;
+            UpdateButtonText = "Baixando 0%...";
+
+            var progress = new Progress<double>(percent =>
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    UpdateDownloadProgress = percent;
+                    UpdateButtonText = $"Baixando {percent:F0}%...";
+                });
+            });
+
+            try
+            {
+                AppendLog($"[ATUALIZAÇÃO] Baixando instalador da versão v{_availableUpdate.LatestVersion}...");
+                await _updateService.DownloadAndInstallUpdateAsync(_availableUpdate.DownloadUrl, progress, msg =>
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
+                });
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"[ERRO NA ATUALIZAÇÃO] {ex.Message}");
+                UpdateButtonText = "Tentar Novamente";
+                IsDownloadingUpdate = false;
+            }
         }
 
         public void Dispose()

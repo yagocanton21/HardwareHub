@@ -11,6 +11,11 @@ if %errorlevel% neq 0 (
 taskkill /F /IM HardwareHub.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
 
+where dotnet >nul 2>&1
+if %errorlevel% neq 0 (
+    set "PATH=C:\Program Files\dotnet;%PATH%"
+)
+
 echo [2/3] Compilando versao mais recente...
 dotnet build "%~dp0src\HardwareHub\HardwareHub.csproj" -c Debug --nologo -v q
 

@@ -11,6 +11,12 @@ if (-not $pawnInstalled) {
     winget install --id namazso.PawnIO -e --silent --accept-package-agreements --accept-source-agreements
 }
 
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    if (Test-Path "$env:ProgramFiles\dotnet\dotnet.exe") {
+        $env:PATH = "$env:ProgramFiles\dotnet;$env:PATH"
+    }
+}
+
 Write-Host "[2/3] Compilando versao mais recente com novas correcoes..." -ForegroundColor Yellow
 $proj = "$PSScriptRoot\src\HardwareHub\HardwareHub.csproj"
 if (-not (Test-Path $proj)) { $proj = "$PSScriptRoot\HardwareHub.csproj" }

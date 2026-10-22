@@ -17,6 +17,7 @@ namespace HardwareHub.Services
         private int _cachedCpuThreads = 0;
         private string _cachedGpuName = "";
         private double _cachedRamTotalGb = 0;
+        private double _cachedCpuClockSpeedGhz = 0;
         private string _cachedOsName = "";
         private double _smoothedCpuTemp = 0;
         private static DateTime _systemBootTime = DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64);
@@ -147,13 +148,14 @@ namespace HardwareHub.Services
         {
             try
             {
-                using var cpuSearcher = new ManagementObjectSearcher("SELECT Name, NumberOfCores, NumberOfLogicalProcessors FROM Win32_Processor");
+                using var cpuSearcher = new ManagementObjectSearcher("SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor");
                 foreach (var obj in cpuSearcher.Get())
                 {
                     string rawName = obj["Name"]?.ToString() ?? "";
                     _cachedCpuName = System.Text.RegularExpressions.Regex.Replace(rawName, @"\s+", " ").Trim();
                     if (int.TryParse(obj["NumberOfCores"]?.ToString(), out int cores)) _cachedCpuCores = cores;
                     if (int.TryParse(obj["NumberOfLogicalProcessors"]?.ToString(), out int threads)) _cachedCpuThreads = threads;
+                    if (uint.TryParse(obj["MaxClockSpeed"]?.ToString(), out uint mhz) && mhz > 0) _cachedCpuClockSpeedGhz = mhz / 1000.0;
                     break;
                 }
             }
@@ -259,7 +261,14 @@ namespace HardwareHub.Services
                             {
                                 cpu.Temperature = reading.Value;
                             }
-                            else if (gpu.Temperature <= 0 && reading.Label.Contains("GPU", StringComparison.OrdinalIgnoreCase))
+                            else if (gpu.Temperature <= 0 &&
+                                     (reading.Label.Equals("GPU Temperature", StringComparison.OrdinalIgnoreCase) ||
+                                      reading.Label.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) ||
+                                      reading.Label.Contains("GPU Thermal Diode", StringComparison.OrdinalIgnoreCase) ||
+                                      (reading.Label.Contains("GPU", StringComparison.OrdinalIgnoreCase) &&
+                                       !reading.Label.Contains("Hot Spot", StringComparison.OrdinalIgnoreCase) &&
+                                       !reading.Label.Contains("Hotspot", StringComparison.OrdinalIgnoreCase) &&
+                                       !reading.Label.Contains("Memory", StringComparison.OrdinalIgnoreCase))))
                             {
                                 gpu.Temperature = reading.Value;
                             }
@@ -300,7 +309,8 @@ namespace HardwareHub.Services
                                                                         s.Name.Equals("Max", StringComparison.OrdinalIgnoreCase))
                                         ?? cpuTemps.FirstOrDefault(s => s.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) ||
                                                                         s.Name.Contains("Tctl", StringComparison.OrdinalIgnoreCase) ||
-                                                                        s.Name.Contains("Tdie", StringComparison.OrdinalIgnoreCase))
+                                                                        s.Name.Contains("Tdie", StringComparison.OrdinalIgnoreCase) ||
+                                                                        s.Name.Contains("CCD", StringComparison.OrdinalIgnoreCase))
                                         ?? cpuTemps.FirstOrDefault(s => s.Name.Contains("Core #", StringComparison.OrdinalIgnoreCase) ||
                                                                         s.Name.Contains("CPU Core", StringComparison.OrdinalIgnoreCase));
 
@@ -330,11 +340,14 @@ namespace HardwareHub.Services
                                         if (sensor.Value.HasValue) cpu.UsagePercentage = sensor.Value.Value;
                                     }
                                 }
-                                else if (sensor.SensorType == SensorType.Clock)
+                                else if (sensor.SensorType == SensorType.Clock && !sensor.Name.Contains("Bus", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    if (sensor.Value.HasValue && sensor.Value.Value > 0 && cpu.ClockSpeedGhz <= 0)
+                                    if (sensor.Value.HasValue && sensor.Value.Value > 300)
                                     {
-                                        cpu.ClockSpeedGhz = sensor.Value.Value / 1000.0;
+                                        if (cpu.ClockSpeedGhz <= 0 || sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            cpu.ClockSpeedGhz = Math.Max(cpu.ClockSpeedGhz, sensor.Value.Value / 1000.0);
+                                        }
                                     }
                                 }
                             }
@@ -347,26 +360,58 @@ namespace HardwareHub.Services
                                 gpu.Name = hw.Name;
                             }
 
+                            // 1. Filtragem inteligente de temperatura da GPU: prioriza GPU Core e ignora Hot Spot e Memória na temperatura principal
+                            var gpuTemps = hw.Sensors
+                                .Where(s => s.SensorType == SensorType.Temperature 
+                                         && s.Value.HasValue 
+                                         && s.Value.Value > 0)
+                                .ToList();
+
+                            if (gpuTemps.Count > 0)
+                            {
+                                var mainTemp = gpuTemps.FirstOrDefault(s => s.Name.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) ||
+                                                                            s.Name.Equals("Core", StringComparison.OrdinalIgnoreCase) ||
+                                                                            s.Name.Contains("Edge", StringComparison.OrdinalIgnoreCase))
+                                            ?? gpuTemps.FirstOrDefault(s => !s.Name.Contains("Hot Spot", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("Hotspot", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("Junction", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("Memory", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("VRM", StringComparison.OrdinalIgnoreCase))
+                                            ?? gpuTemps.First();
+
+                                if (gpu.Temperature <= 0 || isDedicated)
+                                {
+                                    gpu.Temperature = mainTemp.Value!.Value;
+                                }
+                            }
+
+                            // 2. Filtragem inteligente de uso da GPU: prioriza GPU Core / GPU Total em vez de Video Engine ou Memory Controller
+                            var gpuLoads = hw.Sensors
+                                .Where(s => s.SensorType == SensorType.Load 
+                                         && s.Value.HasValue 
+                                         && s.Value.Value >= 0)
+                                .ToList();
+
+                            if (gpuLoads.Count > 0)
+                            {
+                                var mainLoad = gpuLoads.FirstOrDefault(s => s.Name.Equals("GPU Core", StringComparison.OrdinalIgnoreCase) ||
+                                                                            s.Name.Equals("Core", StringComparison.OrdinalIgnoreCase) ||
+                                                                            s.Name.Contains("Total", StringComparison.OrdinalIgnoreCase))
+                                            ?? gpuLoads.FirstOrDefault(s => !s.Name.Contains("Memory", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("Video", StringComparison.OrdinalIgnoreCase) &&
+                                                                            !s.Name.Contains("Frame", StringComparison.OrdinalIgnoreCase))
+                                            ?? gpuLoads.First();
+
+                                if (gpu.UsagePercentage <= 0 || isDedicated)
+                                {
+                                    gpu.UsagePercentage = mainLoad.Value!.Value;
+                                }
+                            }
+
+                            // 3. Memória VRAM utilizada e total
                             foreach (var sensor in hw.Sensors)
                             {
-                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0)
-                                {
-                                    if (gpu.Temperature <= 0 || isDedicated)
-                                    {
-                                        gpu.Temperature = sensor.Value.Value;
-                                    }
-                                }
-                                else if (sensor.SensorType == SensorType.Load)
-                                {
-                                    if (sensor.Value.HasValue && sensor.Value.Value >= 0)
-                                    {
-                                        if (gpu.UsagePercentage <= 0 || isDedicated)
-                                        {
-                                            gpu.UsagePercentage = sensor.Value.Value;
-                                        }
-                                    }
-                                }
-                                else if (sensor.SensorType == SensorType.SmallData && sensor.Name.Contains("Memory Used", StringComparison.OrdinalIgnoreCase))
+                                if (sensor.SensorType == SensorType.SmallData && sensor.Name.Contains("Memory Used", StringComparison.OrdinalIgnoreCase))
                                 {
                                     if (sensor.Value.HasValue) gpu.MemoryUsedGb = sensor.Value.Value / 1024.0;
                                 }
@@ -499,7 +544,125 @@ namespace HardwareHub.Services
                 Uptime = DateTime.Now > _systemBootTime ? (DateTime.Now - _systemBootTime) : TimeSpan.FromMilliseconds(Environment.TickCount64)
             };
 
+            // Fallback de Clock da CPU caso o sensor não esteja liberado
+            if (cpu.ClockSpeedGhz <= 0 && _cachedCpuClockSpeedGhz > 0)
+            {
+                cpu.ClockSpeedGhz = _cachedCpuClockSpeedGhz;
+            }
+
             return (cpu, gpu, ram, disks, system);
+        }
+
+        public void EnrichDisksWithSensors(IEnumerable<DiskHealthInfo> disks)
+        {
+            if (_computer == null || !_isComputerOpened) return;
+            try
+            {
+                foreach (var hw in _computer.Hardware)
+                {
+                    if (hw.HardwareType == HardwareType.Storage)
+                    {
+                        hw.Update();
+                        string hwName = hw.Name ?? "";
+
+                        var matched = disks.FirstOrDefault(d =>
+                            (!string.IsNullOrEmpty(d.Model) && (hwName.Contains(d.Model, StringComparison.OrdinalIgnoreCase) || d.Model.Contains(hwName, StringComparison.OrdinalIgnoreCase))) ||
+                            (!string.IsNullOrEmpty(d.Serial) && hwName.Contains(d.Serial, StringComparison.OrdinalIgnoreCase)));
+
+                        if (matched != null)
+                        {
+                            foreach (var sensor in hw.Sensors)
+                            {
+                                if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue && sensor.Value.Value > 0)
+                                {
+                                    if (!matched.Temperature.HasValue || matched.Temperature <= 0 || sensor.Name.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        matched.Temperature = Math.Round(sensor.Value.Value, 0);
+                                    }
+                                }
+                                else if (sensor.SensorType == SensorType.Level && sensor.Value.HasValue && sensor.Value.Value >= 0)
+                                {
+                                    if (sensor.Name.Contains("Life", StringComparison.OrdinalIgnoreCase) || sensor.Name.Contains("Health", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        matched.HealthPercentage = (int)Math.Round(sensor.Value.Value);
+                                    }
+                                }
+                                else if (sensor.SensorType == SensorType.Data && sensor.Value.HasValue && sensor.Value.Value >= 0)
+                                {
+                                    if (sensor.Name.Contains("Written", StringComparison.OrdinalIgnoreCase) || sensor.Name.Contains("Write", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        double val = sensor.Value.Value;
+                                        matched.TotalWrittenTb = val >= 100 ? Math.Round(val / 1024.0, 1) : Math.Round(val, 1);
+                                    }
+                                    else if (sensor.Name.Contains("Read", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        double val = sensor.Value.Value;
+                                        matched.TotalReadTb = val >= 100 ? Math.Round(val / 1024.0, 1) : Math.Round(val, 1);
+                                    }
+                                }
+                                else if (sensor.SensorType == SensorType.TimeSpan && sensor.Value.HasValue && sensor.Value.Value > 0)
+                                {
+                                    matched.PowerOnHours = (long)sensor.Value.Value;
+                                }
+                                else if (sensor.Name.Contains("Power", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (sensor.Name.Contains("Hour", StringComparison.OrdinalIgnoreCase) && sensor.Value.HasValue && sensor.Value.Value > 0)
+                                    {
+                                        matched.PowerOnHours = (long)sensor.Value.Value;
+                                    }
+                                    else if ((sensor.Name.Contains("Count", StringComparison.OrdinalIgnoreCase) || sensor.Name.Contains("Cycle", StringComparison.OrdinalIgnoreCase)) && sensor.Value.HasValue && sensor.Value.Value > 0)
+                                    {
+                                        matched.PowerOnCount = (long)sensor.Value.Value;
+                                    }
+                                }
+                            }
+
+                            // Extrai atributos S.M.A.R.T. brutos caso a biblioteca exponha (Horas de Uso e Contagem de Inicializações)
+                            try
+                            {
+                                var attrsProp = hw.GetType().GetProperty("Attributes");
+                                if (attrsProp != null)
+                                {
+                                    var attrs = attrsProp.GetValue(hw) as System.Collections.IEnumerable;
+                                    if (attrs != null)
+                                    {
+                                        foreach (var attr in attrs)
+                                        {
+                                            var nameProp = attr.GetType().GetProperty("Name");
+                                            var valProp = attr.GetType().GetProperty("Value");
+                                            var idProp = attr.GetType().GetProperty("Id");
+
+                                            string attrName = nameProp?.GetValue(attr)?.ToString() ?? "";
+                                            byte attrId = idProp != null ? Convert.ToByte(idProp.GetValue(attr) ?? 0) : (byte)0;
+                                            float attrVal = valProp != null ? Convert.ToSingle(valProp.GetValue(attr) ?? 0f) : 0f;
+
+                                            if (attrVal > 0)
+                                            {
+                                                if (attrId == 9 || attrName.Contains("Power-On Hours", StringComparison.OrdinalIgnoreCase) || attrName.Contains("Power On Hours", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    if (!matched.PowerOnHours.HasValue || matched.PowerOnHours <= 0)
+                                                    {
+                                                        matched.PowerOnHours = (long)attrVal;
+                                                    }
+                                                }
+                                                else if (attrId == 12 || attrName.Contains("Power Cycle Count", StringComparison.OrdinalIgnoreCase) || attrName.Contains("Power-On Count", StringComparison.OrdinalIgnoreCase) || attrName.Contains("Power Cycles", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    if (!matched.PowerOnCount.HasValue || matched.PowerOnCount <= 0)
+                                                    {
+                                                        matched.PowerOnCount = (long)attrVal;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private void EnsureHwInfoBackendRunning()

@@ -144,11 +144,19 @@ namespace HardwareHub.Services
             }
             catch { }
 
-            // 4. Integração nativa com Base S.M.A.R.T. do CrystalDiskInfo (se presente em D:\Crystal disk info e mark Portable)
+            // 4. Integração nativa com Base S.M.A.R.T. do CrystalDiskInfo (se presente em pastas portáteis ou padrão)
             try
             {
-                string cdiSmartBase = @"D:\Crystal disk info e mark Portable\Smart";
-                if (Directory.Exists(cdiSmartBase))
+                string[] possibleSmartDirs = {
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Smart"),
+                    @"C:\Crystal disk info e mark Portable\Smart",
+                    @"D:\Crystal disk info e mark Portable\Smart",
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "CrystalDiskInfo", "Smart"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "CrystalDiskInfo", "Smart")
+                };
+
+                string? cdiSmartBase = possibleSmartDirs.FirstOrDefault(Directory.Exists);
+                if (cdiSmartBase != null)
                 {
                     foreach (var info in results.Values)
                     {

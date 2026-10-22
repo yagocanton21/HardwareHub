@@ -171,6 +171,42 @@
                         <TextBlock Text="Monitoramento de telemetria em tempo real e atalhos rápidos" FontSize="12" Foreground="#A1A1AA" Margin="0,2,0,0" />
                     </StackPanel>
 
+                    <!-- Banner de Atualização Automática Disponível -->
+                    <Border Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVis}}"
+                            Background="#1E1B4B" BorderBrush="#6366F1" BorderThickness="1" CornerRadius="10"
+                            Padding="16,12" Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🚀 Nova versão disponível!" FontWeight="Bold" Foreground="#818CF8" FontSize="14" />
+                                    <Border Background="#312E81" CornerRadius="4" Padding="6,2" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding LatestVersionText}" FontSize="11" Foreground="#C7D2FE" FontWeight="Bold" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding UpdateChangelogSummary}" Foreground="#A5B4FC" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                <ProgressBar Value="{Binding UpdateDownloadProgress}" Maximum="100" Height="4" Margin="0,8,0,0"
+                                             Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVis}}"
+                                             Foreground="#818CF8" Background="#312E81" BorderThickness="0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Command="{Binding ApplyUpdateCommand}" IsEnabled="{Binding CanApplyUpdate}"
+                                    Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" FontSize="12"
+                                    Padding="16,8" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding UpdateButtonText}" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
                     <!-- Grade de Cartões de Destaque -->
                     <Grid Margin="0,0,0,18">
                         <Grid.ColumnDefinitions>
@@ -775,27 +811,80 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
+                    <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
                         <TextBlock Text="Central de Programas" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
-                        <TextBlock Text="Instale os principais navegadores, ferramentas e jogos com instalação silenciosa e segura" FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,0" />
+                        <TextBlock Text="Instale os principais navegadores, ferramentas e jogos de forma silenciosa e segura" 
+                                   FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding RefreshSoftwareStatusCommand}"
-                            Background="#27272A" Foreground="#E4E4E7" FontWeight="SemiBold" FontSize="12"
-                            Padding="16,9" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#3F3F46" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <TextBlock Text="{Binding RefreshButtonText}" />
-                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Botão Importar Lista Winget -->
+                        <Button Command="{Binding ImportWingetFileCommand}"
+                                Background="#312E81" Foreground="#C7D2FE" FontWeight="SemiBold" FontSize="12"
+                                Padding="14,9" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="borderImp" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="borderImp" Property="Background" Value="#4338CA" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📥 " Margin="0,0,4,0" />
+                                <TextBlock Text="Importar Lista Winget" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Botão Instalar Todos os Importados em Lote -->
+                        <Button Command="{Binding InstallAllImportedCommand}"
+                                Visibility="{Binding HasImportedApps, Converter={StaticResource BoolToVis}}"
+                                IsEnabled="{Binding CanBatchInstall}"
+                                Background="#059669" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="12"
+                                Padding="14,9" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="borderBatch" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="borderBatch" Property="Background" Value="#10B981" />
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="borderBatch" Property="Background" Value="#27272A" />
+                                            <Setter Property="Foreground" Value="#71717A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚡ " Margin="0,0,4,0" />
+                                <TextBlock Text="Instalar Todos da Lista" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding RefreshSoftwareStatusCommand}"
+                                Background="#27272A" Foreground="#E4E4E7" FontWeight="SemiBold" FontSize="12"
+                                Padding="16,9" BorderThickness="0" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="#3F3F46" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="{Binding RefreshButtonText}" />
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <!-- Linha 1: Campo de Busca Moderno com Botão de Busca no Winget Global -->
@@ -1369,18 +1458,32 @@
                         <TextBlock Text="Console de Operações" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
                         <TextBlock Text="Logs em tempo real de downloads do winget, telemetria de sensores e eventos" FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,0" />
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding ClearLogsCommand}"
-                            Background="#27272A" Foreground="#E4E4E7" FontWeight="SemiBold" FontSize="12"
-                            Padding="14,8" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter />
-                                </Border>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <TextBlock Text="🗑️ Limpar Console" />
-                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Command="{Binding CheckForUpdatesCommand}"
+                                Background="#312E81" Foreground="#C7D2FE" FontWeight="SemiBold" FontSize="12"
+                                Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="🔄 Buscar Atualizações" />
+                        </Button>
+                        <Button Command="{Binding ClearLogsCommand}"
+                                Background="#27272A" Foreground="#E4E4E7" FontWeight="SemiBold" FontSize="12"
+                                Padding="14,8" BorderThickness="0" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="🗑️ Limpar Console" />
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <Border Grid.Row="1" Background="#0F0F11" BorderBrush="#27272A" BorderThickness="1" CornerRadius="10" Padding="14">

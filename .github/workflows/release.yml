@@ -1,0 +1,81 @@
+name: Build and Release Hardware HUB
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Portable Windows Executable
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Compute Automatic Version
+        id: get_version
+        shell: pwsh
+        run: |
+          # Incrementa a versão automaticamente a cada push na nuvem
+          $runNumber = "${{ github.run_number }}"
+          $version = "1.0.$runNumber"
+          $tag = "v$version"
+          Write-Host "Versão gerada automaticamente: $tag"
+          Write-Output "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore Dependencies
+        run: dotnet restore src/HardwareHub/HardwareHub.csproj
+
+      - name: Publish Self-Contained Single File EXE
+        shell: pwsh
+        run: |
+          dotnet publish src/HardwareHub/HardwareHub.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:Version="${{ steps.get_version.outputs.version }}" `
+            -p:AssemblyVersion="${{ steps.get_version.outputs.version }}.0" `
+            -p:FileVersion="${{ steps.get_version.outputs.version }}.0" `
+            -o dist/release
+
+      - name: Verify Executable
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/release/HardwareHub.exe")) {
+            Write-Error "HardwareHub.exe not found in dist/release!"
+            exit 1
+          }
+          $size = (Get-Item "dist/release/HardwareHub.exe").Length / 1MB
+          Write-Host ("HardwareHub.exe built successfully! Size: {0:N1} MB" -f $size)
+
+      - name: Create GitHub Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Hardware HUB ${{ steps.get_version.outputs.tag }}
+          draft: false
+          prerelease: false
+          make_latest: true
+          generate_release_notes: true
+          files: |
+            dist/release/HardwareHub.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

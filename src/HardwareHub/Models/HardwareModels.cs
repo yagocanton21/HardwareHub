@@ -76,6 +76,16 @@ namespace HardwareHub.Models
         public string UserName { get; set; } = Environment.UserName;
         public TimeSpan Uptime { get; set; }
 
-        public string FormattedUptime => $"{(int)Uptime.TotalHours}h {Uptime.Minutes}m {Uptime.Seconds}s";
+        public string FormattedUptime
+        {
+            get
+            {
+                if (Uptime.TotalDays >= 1.0)
+                {
+                    return $"{Uptime.Days}d {Uptime.Hours:D2}h {Uptime.Minutes:D2}m {Uptime.Seconds:D2}s";
+                }
+                return $"{Uptime.Hours:D2}h {Uptime.Minutes:D2}m {Uptime.Seconds:D2}s";
+            }
+        }
     }
 }
