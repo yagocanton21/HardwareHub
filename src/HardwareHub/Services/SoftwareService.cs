@@ -882,10 +882,38 @@ namespace HardwareHub.Services
             return (id, name);
         }
 
-        private static void AddParsedItem(List<SoftwareItem> list, string rawId, string? customName = null)
+        private void AddParsedItem(List<SoftwareItem> list, string rawId, string? customName = null)
         {
             string id = rawId.Trim().Trim('"', '\'');
-            if (string.IsNullOrWhiteSpace(id) || list.Any(x => x.WingetId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            if (string.IsNullOrWhiteSpace(id))
+                return;
+
+            // Auto-correção inteligente para IDs comuns ou abreviações de exportações externas
+            if (id.Equals("chrome", StringComparison.OrdinalIgnoreCase) || id.Equals("google-chrome", StringComparison.OrdinalIgnoreCase))
+            {
+                id = "Google.Chrome";
+                customName = "Google Chrome";
+            }
+            else if (id.Equals("whatsapp", StringComparison.OrdinalIgnoreCase))
+            {
+                id = "9NKSQGP7F2NH";
+                customName = "WhatsApp Desktop";
+            }
+
+            var catalogMatch = GetCatalog().FirstOrDefault(c => 
+                c.WingetId.Equals(id, StringComparison.OrdinalIgnoreCase) || 
+                c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+            if (catalogMatch != null)
+            {
+                id = catalogMatch.WingetId;
+                if (string.IsNullOrWhiteSpace(customName) || customName == rawId)
+                {
+                    customName = catalogMatch.Name;
+                }
+            }
+
+            if (list.Any(x => x.WingetId.Equals(id, StringComparison.OrdinalIgnoreCase)))
                 return;
 
             string friendlyName = !string.IsNullOrWhiteSpace(customName) ? customName.Trim() : id;
@@ -899,10 +927,10 @@ namespace HardwareHub.Services
             {
                 Id = id.ToLowerInvariant(),
                 Name = friendlyName,
-                Publisher = "Lista Importada",
+                Publisher = catalogMatch?.Publisher ?? "Lista Importada",
                 Category = "Importados",
                 WingetId = id,
-                Description = $"Pacote importado: {id}. Instalação automatizada via Winget.",
+                Description = catalogMatch?.Description ?? $"Pacote importado: {id}. Instalação automatizada via Winget.",
                 Status = PackageStatus.Available,
                 StatusMessage = "Disponível para instalar"
             });
