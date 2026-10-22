@@ -217,7 +217,7 @@ namespace HardwareHub.Services
             // 2. Usa "ping" para delays ao invés de "timeout" (que falha em janelas ocultas/não-interativas)
             // 3. Funciona em TODAS as versões do Windows sem dependência de runtime
 
-            string updaterCmd = Path.Combine(Path.GetTempPath(), "HardwareHub_Updater.cmd");
+            string updaterCmd = Path.Combine(Path.GetTempPath(), "HardwareHub_Updater.ps1");
             int currentPid = Environment.ProcessId;
             string oldExePath = currentExePath + ".old";
 
@@ -335,8 +335,63 @@ REM Auto-deleta o script
 (goto) 2>nul & del /f /q ""%~f0""
 ";
 
+            _ = batContent; // Mantém compatibilidade com logs de versões anteriores.
+
+            // PowerShell 5.1 no Windows 10 lê corretamente scripts UTF-8 com BOM.
+            // Os caminhos são codificados em Base64 para preservar acentos, espaços,
+            // aspas simples e quaisquer caracteres do perfil do usuário.
+            string ToBase64(string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value));
+            string psContent = $@"$ErrorActionPreference = 'Stop'
+$log = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{ToBase64(UpdateLogPath)}'))
+$source = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{ToBase64(tempUpdateExe)}'))
+$destination = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{ToBase64(currentExePath)}'))
+$backup = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{ToBase64(oldExePath)}'))
+$appPid = {currentPid}
+
+function Write-UpdateLog([string]$message) {{
+    Add-Content -LiteralPath $log -Value (('[{{0:yyyy-MM-dd HH:mm:ss}}] [PS] {{1}}' -f (Get-Date), $message)) -Encoding UTF8
+}}
+
+try {{
+    Write-UpdateLog 'SCRIPT DE ATUALIZACAO INICIADO'
+    Write-UpdateLog ('Destino: ' + $destination)
+    $process = Get-Process -Id $appPid -ErrorAction SilentlyContinue
+    if ($null -ne $process) {{
+        Write-UpdateLog ('Aguardando processo ' + $appPid + ' encerrar...')
+        Wait-Process -Id $appPid -Timeout 120 -ErrorAction SilentlyContinue
+    }}
+    Start-Sleep -Seconds 2
+    if (-not (Test-Path -LiteralPath $source)) {{ throw 'Arquivo baixado não encontrado.' }}
+
+    $updated = $false
+    for ($attempt = 1; $attempt -le 30 -and -not $updated; $attempt++) {{
+        try {{
+            if (Test-Path -LiteralPath $backup) {{ Remove-Item -LiteralPath $backup -Force }}
+            if (Test-Path -LiteralPath $destination) {{ Move-Item -LiteralPath $destination -Destination $backup -Force }}
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+            $updated = Test-Path -LiteralPath $destination
+        }} catch {{
+            Write-UpdateLog ('Tentativa ' + $attempt + ' falhou: ' + $_.Exception.Message)
+            Start-Sleep -Seconds 2
+        }}
+    }}
+
+    if (-not $updated) {{
+        if ((-not (Test-Path -LiteralPath $destination)) -and (Test-Path -LiteralPath $backup)) {{ Move-Item -LiteralPath $backup -Destination $destination -Force }}
+        throw 'Não foi possível substituir o executável após 30 tentativas.'
+    }}
+
+    Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+    Write-UpdateLog 'SUCESSO: executável atualizado. Iniciando nova versão.'
+    Start-Process -FilePath $destination -WorkingDirectory (Split-Path -LiteralPath $destination)
+}} catch {{
+    Write-UpdateLog ('ERRO CRITICO: ' + $_.Exception.Message)
+}}
+";
+
             WriteUpdateLog($"Escrevendo script de atualizacao em: {updaterCmd}", log);
-            File.WriteAllText(updaterCmd, batContent, System.Text.Encoding.Default);
+            File.WriteAllText(updaterCmd, psContent, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
             // Verifica que o script foi criado
             if (!File.Exists(updaterCmd))
@@ -349,7 +404,8 @@ REM Auto-deleta o script
             // ═══════════════════ INICIA O SCRIPT COM ELEVAÇÃO TOTAL ═══════════════════
             var psi = new ProcessStartInfo
             {
-                FileName = updaterCmd,
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{updaterCmd}\"",
                 UseShellExecute = true,      // Executa de forma desacoplada
                 Verb = "runas",              // Garante permissões administrativas
                 WindowStyle = ProcessWindowStyle.Hidden,
@@ -365,9 +421,9 @@ REM Auto-deleta o script
             }
             catch (Exception ex)
             {
-                WriteUpdateLog($"AVISO: Falha ao iniciar diretamente ({ex.Message}), tentando fallback com cmd.exe...", log);
-                psi.FileName = "cmd.exe";
-                psi.Arguments = $"/c call \"{updaterCmd}\"";
+                WriteUpdateLog($"AVISO: Falha ao iniciar elevado ({ex.Message}), tentando fallback sem elevação...", log);
+                psi.UseShellExecute = false;
+                psi.Verb = "";
                 scriptProcess = Process.Start(psi);
             }
 
