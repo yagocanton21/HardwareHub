@@ -408,10 +408,9 @@ namespace HardwareHub.ViewModels
                 {
                     // 1. Tenta pelo winget via SoftwareService
                     var pawnItem = AllSoftware.FirstOrDefault(x => x.Id == "pawnio");
-                    bool success = false;
                     if (pawnItem != null)
                     {
-                        success = await _softwareService.InstallPackageAsync(pawnItem, msg =>
+                        await _softwareService.InstallPackageAsync(pawnItem, msg =>
                         {
                             System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
                         });
@@ -421,13 +420,13 @@ namespace HardwareHub.ViewModels
                     if (!HardwareService.IsPawnIOInstalled)
                     {
                         AppendLog("[DRIVER] Tentando instalação alternativa direta (GitHub Releases)...");
-                        success = await _softwareService.InstallPawnIODirectAsync(msg =>
+                        await _softwareService.InstallPawnIODirectAsync(msg =>
                         {
                             System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
                         });
                     }
 
-                    if (HardwareService.IsPawnIOInstalled || success)
+                    if (HardwareService.IsPawnIOInstalled)
                     {
                         AppendLog("[DRIVER] Driver PawnIO instalado com sucesso! Reinicializando sensores da CPU...");
                         await _hardwareService.ReinitializeSensorsAsync();
@@ -583,6 +582,17 @@ namespace HardwareHub.ViewModels
                 {
                     UpdateHardwareMetrics();
                 });
+
+                // O executável portátil não usa o inicializador. Sem temperatura
+                // detectada e sem PawnIO, tenta instalar o driver já na primeira execução.
+                if (!HardwareService.IsPawnIOInstalled && Cpu.Temperature <= 0)
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        AppendLog("[DRIVER] Sensores térmicos indisponíveis. Tentando instalar PawnIO automaticamente...");
+                        InstallPawnIOCommand.Execute(null);
+                    });
+                }
 
                 _ = RefreshDisksHealthAsync();
                 _ = RefreshInstalledStatusAsync();
