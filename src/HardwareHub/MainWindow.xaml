@@ -402,6 +402,7 @@
                                            FontSize="11" Foreground="#A1A1AA" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                             <Button Grid.Column="1" Command="{Binding InstallPawnIOCommand}"
+                                    IsEnabled="{Binding CanInstallPawn}"
                                     Background="#CA8A04" Foreground="#FFFFFF" FontWeight="Bold" FontSize="11"
                                     Padding="14,7" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,8,0">
                                 <Button.Template>
@@ -411,7 +412,7 @@
                                         </Border>
                                     </ControlTemplate>
                                 </Button.Template>
-                                <TextBlock Text="Instalar Driver ➔" />
+                                <TextBlock Text="{Binding PawnButtonText}" />
                             </Button>
                             <Button Grid.Column="2" Command="{Binding DismissPawnBannerCommand}"
                                     Background="Transparent" Foreground="#71717A" FontWeight="Bold" FontSize="13"

@@ -140,6 +140,43 @@ namespace HardwareHub.Services
             });
         }
 
+        public async Task ReinitializeSensorsAsync()
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    _computer?.Close();
+                }
+                catch { }
+
+                try
+                {
+                    var comp = new Computer
+                    {
+                        IsCpuEnabled = true,
+                        IsGpuEnabled = true,
+                        IsMemoryEnabled = true,
+                        IsMotherboardEnabled = true,
+                        IsStorageEnabled = true,
+                        IsControllerEnabled = true
+                    };
+                    comp.Open();
+                    _computer = comp;
+                    _isComputerOpened = true;
+                }
+                catch (Exception ex)
+                {
+                    _isComputerOpened = false;
+                    try
+                    {
+                        File.AppendAllText("sensors.log", $"[LHM Reopen Error] {ex}\n");
+                    }
+                    catch { }
+                }
+            });
+        }
+
         private void LoadStaticHardwareInfo()
         {
             Parallel.Invoke(

@@ -512,8 +512,10 @@ namespace HardwareHub.Services
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
+                    process.WaitForExit(180000); // Aguarda até 3 minutos para download e instalação
+
                     // 0 = Sucesso, 3010 = Sucesso (reinicialização pendente), 0x8A15002B = Pacote já instalado
-                    bool isOk = process.ExitCode == 0 || process.ExitCode == 3010 || unchecked((uint)process.ExitCode) == 0x8A15002B;
+                    bool isOk = process.HasExited && (process.ExitCode == 0 || process.ExitCode == 3010 || unchecked((uint)process.ExitCode) == 0x8A15002B);
 
                     if (isOk)
                     {
@@ -590,6 +592,50 @@ namespace HardwareHub.Services
                 item.StatusMessage = "Erro no download";
                 item.IsIndeterminate = false;
                 logCallback($"[OFFICE ERRO] {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> InstallPawnIODirectAsync(Action<string> logCallback)
+        {
+            try
+            {
+                logCallback("[DRIVER] Baixando instalador oficial do PawnIO (GitHub Releases)...");
+                string tempSetup = Path.Combine(Path.GetTempPath(), "PawnIO_setup.exe");
+                using (var httpClient = new System.Net.Http.HttpClient())
+                {
+                    httpClient.Timeout = TimeSpan.FromMinutes(2);
+                    using var response = await httpClient.GetAsync("https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe");
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        logCallback($"[DRIVER] Falha ao baixar instalador direto: HTTP {(int)response.StatusCode}");
+                        return false;
+                    }
+
+                    using var fs = new FileStream(tempSetup, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                }
+
+                logCallback("[DRIVER] Executando instalador silencioso do driver PawnIO...");
+                var psi = new ProcessStartInfo
+                {
+                    FileName = tempSetup,
+                    Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    await proc.WaitForExitAsync();
+                    return proc.ExitCode == 0;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logCallback($"[DRIVER EXCEÇÃO] {ex.Message}");
                 return false;
             }
         }

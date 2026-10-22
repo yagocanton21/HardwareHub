@@ -200,7 +200,11 @@ namespace HardwareHub.ViewModels
         public bool CanRefreshDisks => !IsRefreshingDisks;
 
         private bool _isPawnBannerDismissed = false;
+        private bool _isInstallingPawn = false;
         public bool IsPawnIOMissing => !_isPawnBannerDismissed && _hardwareService.IsInitialized && !HardwareService.IsPawnIOInstalled && Cpu.Temperature <= 0;
+        public bool IsInstallingPawn => _isInstallingPawn;
+        public bool CanInstallPawn => !_isInstallingPawn;
+        public string PawnButtonText => _isInstallingPawn ? "⏳ Instalando..." : "Instalar Driver ➔";
 
         public UpdateInfo? AvailableUpdate
         {
@@ -393,13 +397,60 @@ namespace HardwareHub.ViewModels
 
             InstallPawnIOCommand = new RelayCommand(async _ =>
             {
-                var pawnItem = AllSoftware.FirstOrDefault(x => x.Id == "pawnio");
-                if (pawnItem != null)
+                if (_isInstallingPawn) return;
+                _isInstallingPawn = true;
+                OnPropertyChanged(nameof(IsInstallingPawn));
+                OnPropertyChanged(nameof(CanInstallPawn));
+                OnPropertyChanged(nameof(PawnButtonText));
+                AppendLog("[DRIVER] Iniciando instalação do driver de sensores PawnIO...");
+
+                try
                 {
-                    await InstallAppAsync(pawnItem);
+                    // 1. Tenta pelo winget via SoftwareService
+                    var pawnItem = AllSoftware.FirstOrDefault(x => x.Id == "pawnio");
+                    bool success = false;
+                    if (pawnItem != null)
+                    {
+                        success = await _softwareService.InstallPackageAsync(pawnItem, msg =>
+                        {
+                            System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
+                        });
+                    }
+
+                    // 2. Se falhar pelo winget, tenta instalar diretamente via GitHub Setup
+                    if (!HardwareService.IsPawnIOInstalled)
+                    {
+                        AppendLog("[DRIVER] Tentando instalação alternativa direta (GitHub Releases)...");
+                        success = await _softwareService.InstallPawnIODirectAsync(msg =>
+                        {
+                            System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
+                        });
+                    }
+
+                    if (HardwareService.IsPawnIOInstalled || success)
+                    {
+                        AppendLog("[DRIVER] Driver PawnIO instalado com sucesso! Reinicializando sensores da CPU...");
+                        await _hardwareService.ReinitializeSensorsAsync();
+                        UpdateHardwareMetrics();
+                    }
+                    else
+                    {
+                        AppendLog("[DRIVER] Não foi possível concluir a instalação automática. Você pode baixar em https://pawnio.eu");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"[ERRO DRIVER] {ex.Message}");
+                }
+                finally
+                {
+                    _isInstallingPawn = false;
+                    OnPropertyChanged(nameof(IsInstallingPawn));
+                    OnPropertyChanged(nameof(CanInstallPawn));
+                    OnPropertyChanged(nameof(PawnButtonText));
                     OnPropertyChanged(nameof(IsPawnIOMissing));
                 }
-            });
+            }, _ => !_isInstallingPawn);
 
             DismissPawnBannerCommand = new RelayCommand(_ =>
             {
