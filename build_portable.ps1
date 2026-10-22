@@ -40,10 +40,16 @@ if ($LASTEXITCODE -eq 0) {
         Get-Process -Name HardwareHub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         Start-Sleep -Milliseconds 600
         try {
-            Copy-Item -Path $exe.FullName -Destination "$desktopDir\HardwareHub.exe" -Force
-            Write-Host " -> Copiado automaticamente para a Area de Trabalho: $desktopDir\HardwareHub.exe" -ForegroundColor Green
+            $dest = "$desktopDir\HardwareHub.exe"
+            $oldDest = "$desktopDir\HardwareHub_old.exe"
+            if (Test-Path $dest) {
+                Remove-Item $oldDest -Force -ErrorAction SilentlyContinue
+                Rename-Item -Path $dest -NewName "HardwareHub_old.exe" -Force -ErrorAction SilentlyContinue
+            }
+            Copy-Item -Path $exe.FullName -Destination $dest -Force
+            Write-Host " -> Copiado automaticamente para a Area de Trabalho: $dest" -ForegroundColor Green
         } catch {
-            Write-Host " -> [AVISO] Feche o Hardware HUB aberto para atualizar a cópia da Área de Trabalho." -ForegroundColor Yellow
+            Write-Host " -> [AVISO] Nao foi possivel atualizar a Area de Trabalho: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
 

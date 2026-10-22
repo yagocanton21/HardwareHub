@@ -30,11 +30,29 @@ namespace HardwareHub.Services
             {
                 try
                 {
-                    using var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                    // 1. Checa chave de desinstalação em 64-bit
+                    using var hklm64 = Microsoft.Win32.RegistryKey.OpenBaseKey(
                         Microsoft.Win32.RegistryHive.LocalMachine,
                         Microsoft.Win32.RegistryView.Registry64);
-                    using var key = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO");
-                    return key != null;
+                    using var key64 = hklm64.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO");
+                    if (key64 != null) return true;
+
+                    // 2. Checa chave de desinstalação em 32-bit
+                    using var hklm32 = Microsoft.Win32.RegistryKey.OpenBaseKey(
+                        Microsoft.Win32.RegistryHive.LocalMachine,
+                        Microsoft.Win32.RegistryView.Registry32);
+                    using var key32 = hklm32.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO");
+                    if (key32 != null) return true;
+
+                    // 3. Checa serviço de driver do sistema (HKLM\SYSTEM\CurrentControlSet\Services\PawnIO)
+                    using var serviceKey = hklm64.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\PawnIO");
+                    if (serviceKey != null) return true;
+
+                    // 4. Checa arquivo do driver em drivers\
+                    string sysPath = Path.Combine(Environment.SystemDirectory, "drivers", "pawnio.sys");
+                    if (File.Exists(sysPath)) return true;
+
+                    return false;
                 }
                 catch { return false; }
             }

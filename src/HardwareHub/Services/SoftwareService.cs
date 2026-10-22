@@ -620,7 +620,7 @@ namespace HardwareHub.Services
                 var psi = new ProcessStartInfo
                 {
                     FileName = tempSetup,
-                    Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+                    Arguments = "-install -silent",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
@@ -629,7 +629,7 @@ namespace HardwareHub.Services
                 if (proc != null)
                 {
                     await proc.WaitForExitAsync();
-                    return proc.ExitCode == 0;
+                    return proc.ExitCode == 0 || HardwareService.IsPawnIOInstalled;
                 }
                 return false;
             }
