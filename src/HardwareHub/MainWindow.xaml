@@ -394,15 +394,16 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="⚡ Ativar Leitura Nativa de Temperatura (Driver PawnIO)" FontSize="13" FontWeight="Bold" Foreground="#FACC15" />
-                                <TextBlock Text="O driver seguro PawnIO (usado pelo FanControl e LibreHardwareMonitor) é necessário para desbloquear os sensores térmicos da CPU."
-                                           FontSize="11" Foreground="#A1A1AA" Margin="0,2,0,0" />
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="⚡ Desbloquear Sensores Térmicos (Driver PawnIO)" FontSize="13" FontWeight="Bold" Foreground="#FACC15" />
+                                <TextBlock Text="Os sensores térmicos da CPU não foram detectados. Instale o driver assinado PawnIO para tentar desbloqueá-los."
+                                           FontSize="11" Foreground="#A1A1AA" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                             <Button Grid.Column="1" Command="{Binding InstallPawnIOCommand}"
                                     Background="#CA8A04" Foreground="#FFFFFF" FontWeight="Bold" FontSize="11"
-                                    Padding="14,7" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
+                                    Padding="14,7" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,8,0">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -411,6 +412,19 @@
                                     </ControlTemplate>
                                 </Button.Template>
                                 <TextBlock Text="Instalar Driver ➔" />
+                            </Button>
+                            <Button Grid.Column="2" Command="{Binding DismissPawnBannerCommand}"
+                                    Background="Transparent" Foreground="#71717A" FontWeight="Bold" FontSize="13"
+                                    Padding="8,5" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center"
+                                    ToolTip="Dispensar aviso">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="✕" />
                             </Button>
                         </Grid>
                     </Border>

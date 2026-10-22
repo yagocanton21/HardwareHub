@@ -103,7 +103,12 @@ namespace HardwareHub.ViewModels
         public CpuMetrics Cpu
         {
             get => _cpu;
-            set { _cpu = value; OnPropertyChanged(); }
+            set 
+            { 
+                _cpu = value; 
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(IsPawnIOMissing));
+            }
         }
 
         public GpuMetrics Gpu
@@ -194,7 +199,8 @@ namespace HardwareHub.ViewModels
         }
         public bool CanRefreshDisks => !IsRefreshingDisks;
 
-        public bool IsPawnIOMissing => !HardwareService.IsPawnIOInstalled;
+        private bool _isPawnBannerDismissed = false;
+        public bool IsPawnIOMissing => !_isPawnBannerDismissed && _hardwareService.IsInitialized && !HardwareService.IsPawnIOInstalled && Cpu.Temperature <= 0;
 
         public UpdateInfo? AvailableUpdate
         {
@@ -284,6 +290,7 @@ namespace HardwareHub.ViewModels
         public ICommand CheckForUpdatesCommand { get; }
         public ICommand ApplyUpdateCommand { get; }
         public ICommand InstallPawnIOCommand { get; }
+        public ICommand DismissPawnBannerCommand { get; }
         public ICommand RefreshDisksCommand { get; }
         public ICommand BenchmarkDiskCommand { get; }
         public ICommand RunMaintenanceCommand { get; }
@@ -392,6 +399,12 @@ namespace HardwareHub.ViewModels
                     await InstallAppAsync(pawnItem);
                     OnPropertyChanged(nameof(IsPawnIOMissing));
                 }
+            });
+
+            DismissPawnBannerCommand = new RelayCommand(_ =>
+            {
+                _isPawnBannerDismissed = true;
+                OnPropertyChanged(nameof(IsPawnIOMissing));
             });
 
             NavigateCommand = new RelayCommand(p =>

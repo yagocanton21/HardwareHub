@@ -22,6 +22,8 @@ namespace HardwareHub.Services
         private double _smoothedCpuTemp = 0;
         private static DateTime _systemBootTime = DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64);
 
+        public bool IsInitialized => _isComputerOpened;
+
         public static bool IsPawnIOInstalled
         {
             get
