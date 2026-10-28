@@ -385,12 +385,14 @@ namespace HardwareHub.ViewModels
 
             StartGpuRenderCommand = new RelayCommand(_ =>
             {
-                _gpuRenderService.Start(AppendLog);
+                _gpuRenderService.Start();
+                AppendLog("[GPU 3D RENDER] Teste de renderização gráfica 3D iniciado.");
             });
 
             StopGpuRenderCommand = new RelayCommand(_ =>
             {
-                _gpuRenderService.Stop(AppendLog);
+                _gpuRenderService.Stop();
+                AppendLog("[GPU 3D RENDER] Teste de renderização gráfica 3D finalizado.");
             });
 
             InstallPawnIOCommand = new RelayCommand(async _ =>
@@ -565,14 +567,7 @@ namespace HardwareHub.ViewModels
             {
                 Interval = TimeSpan.FromSeconds(1.0)
             };
-            _metricsTimer.Tick += (s, e) =>
-            {
-                UpdateHardwareMetrics();
-                if (IsGpuRenderRunning)
-                {
-                    OnPropertyChanged(nameof(GpuRenderElapsed));
-                }
-            };
+            _metricsTimer.Tick += (s, e) => UpdateHardwareMetrics();
             _metricsTimer.Start();
 
             // Leitura imediata de métricas locais rápidas (discos C:/D:, uptime, memória RAM)
@@ -610,24 +605,6 @@ namespace HardwareHub.ViewModels
             try
             {
                 var (cpu, gpu, ram, disks, sys) = _hardwareService.GetCurrentMetrics();
-
-                if (IsGpuRenderRunning && gpu.UsagePercentage <= 0)
-                {
-                    // Em GPUs legadas onde o driver não possui contador de telemetria WDDM,
-                    // reflete a saturação total do motor de estresse Direct3D 11 ativo
-                    gpu.UsagePercentage = 100.0;
-                }
-
-                // Em GPUs integradas onde não há sensor térmico separado do die do processador,
-                // reflete a temperatura do pacote da CPU caso ela esteja disponível
-                if (gpu.Temperature <= 0 && cpu.Temperature > 0 &&
-                    (gpu.Name.Contains("Intel", StringComparison.OrdinalIgnoreCase) ||
-                     gpu.Name.Contains("Vega", StringComparison.OrdinalIgnoreCase) ||
-                     gpu.Name.Contains("Graphics", StringComparison.OrdinalIgnoreCase)))
-                {
-                    gpu.Temperature = cpu.Temperature;
-                }
-
                 Cpu = cpu;
                 Gpu = gpu;
                 Ram = ram;
