@@ -23,6 +23,7 @@ namespace HardwareHub.Services
         private static DateTime _systemBootTime = DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64);
 
         public bool IsInitialized => _isComputerOpened;
+        public bool HasRealCpuTemperature { get; private set; } = false;
 
         public static bool IsPawnIOInstalled
         {
@@ -164,6 +165,7 @@ namespace HardwareHub.Services
             {
                 try
                 {
+                    _smoothedCpuTemp = 0;
                     _computer?.Close();
                 }
                 catch { }
@@ -279,6 +281,8 @@ namespace HardwareHub.Services
 
         public (CpuMetrics Cpu, GpuMetrics Gpu, RamMetrics Ram, List<DiskMetrics> Disks, SystemOverview System) GetCurrentMetrics()
         {
+            HasRealCpuTemperature = false;
+
             var cpu = new CpuMetrics
             {
                 Name = string.IsNullOrEmpty(_cachedCpuName) ? "Processador" : _cachedCpuName,
@@ -308,19 +312,28 @@ namespace HardwareHub.Services
                     {
                         if (reading.ReadingType == 1 && reading.Value > 0) // Temperatura
                         {
-                            if (reading.Label.Contains("Núcleo máximo", StringComparison.OrdinalIgnoreCase) ||
+                            if (reading.Label.Contains("Core Max", StringComparison.OrdinalIgnoreCase) ||
+                                reading.Label.Contains("Núcleo máximo", StringComparison.OrdinalIgnoreCase) ||
                                 reading.Label.Contains("Nucleo maximo", StringComparison.OrdinalIgnoreCase) ||
-                                reading.Label.Contains("Core Max", StringComparison.OrdinalIgnoreCase))
+                                reading.Label.Contains("CPU Package", StringComparison.OrdinalIgnoreCase) ||
+                                reading.Label.Contains("Pacote", StringComparison.OrdinalIgnoreCase) ||
+                                reading.Label.Contains("Tctl/Tdie", StringComparison.OrdinalIgnoreCase) ||
+                                reading.Label.Contains("Tdie", StringComparison.OrdinalIgnoreCase) ||
+                                reading.Label.Contains("CPU CCD", StringComparison.OrdinalIgnoreCase))
                             {
                                 cpu.Temperature = reading.Value;
+                                HasRealCpuTemperature = true;
                             }
                             else if (cpu.Temperature <= 0 && (
                                      reading.Label.Contains("Temperaturas centrais", StringComparison.OrdinalIgnoreCase) ||
+                                     reading.Label.Contains("Core Temperatures", StringComparison.OrdinalIgnoreCase) ||
+                                     reading.Label.Contains("Core #0", StringComparison.OrdinalIgnoreCase) ||
                                      reading.Label.Contains("Core 0", StringComparison.OrdinalIgnoreCase) ||
                                      reading.Label.Contains("CPU Core #1", StringComparison.OrdinalIgnoreCase) ||
                                      reading.Label.Contains("CPU Core", StringComparison.OrdinalIgnoreCase)))
                             {
                                 cpu.Temperature = reading.Value;
+                                HasRealCpuTemperature = true;
                             }
                             else if (gpu.Temperature <= 0 &&
                                      (reading.Label.Equals("GPU Temperature", StringComparison.OrdinalIgnoreCase) ||
@@ -378,6 +391,7 @@ namespace HardwareHub.Services
                                 double rawTemp = main?.Value ?? cpuTemps.Max(s => s.Value!.Value);
                                 if (rawTemp > 0)
                                 {
+                                    HasRealCpuTemperature = true;
                                     if (_smoothedCpuTemp <= 0)
                                     {
                                         _smoothedCpuTemp = rawTemp;
@@ -513,31 +527,6 @@ namespace HardwareHub.Services
                     }
                     catch { }
                 }
-            }
-
-            // Fallback WMI para Temperatura caso o sensor de kernel não esteja liberado
-            if (cpu.Temperature <= 0)
-            {
-                try
-                {
-                    using var searcher = new ManagementObjectSearcher(@"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
-                    foreach (var obj in searcher.Get())
-                    {
-                        if (double.TryParse(obj["CurrentTemperature"]?.ToString(), out double kelvinTenths))
-                        {
-                            // A temperatura no ACPI vem em décimos de Kelvin: (K/10) - 273.15 = C
-                            double celsius = (kelvinTenths / 10.0) - 273.15;
-                            if (celsius > 0 && celsius < 125)
-                            {
-                                if (_smoothedCpuTemp <= 0) _smoothedCpuTemp = celsius;
-                                else _smoothedCpuTemp = (_smoothedCpuTemp * 0.7) + (celsius * 0.3);
-                                cpu.Temperature = Math.Round(_smoothedCpuTemp, 1);
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch { }
             }
 
             // Uso de CPU alinhado com o Gerenciador de Tarefas do Windows (% Processor Utility)

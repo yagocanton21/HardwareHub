@@ -181,6 +181,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
@@ -205,6 +206,19 @@
                                     </ControlTemplate>
                                 </Button.Template>
                                 <TextBlock Text="{Binding UpdateButtonText}" />
+                            </Button>
+                            <Button Grid.Column="2" Command="{Binding DismissUpdateBannerCommand}"
+                                    Background="Transparent" BorderThickness="0"
+                                    Foreground="#A5B4FC" FontSize="14" Cursor="Hand"
+                                    Padding="8,6" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Dispensar aviso">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="✕" />
                             </Button>
                         </Grid>
                     </Border>

@@ -34,6 +34,19 @@ if ($LASTEXITCODE -eq 0) {
     $exe = Get-Item "$outputDir\HardwareHub.exe"
     $sizeMb = [Math]::Round($exe.Length / 1MB, 1)
 
+    # Sincroniza automaticamente com o executavel direto na Area de Trabalho, se existir
+    $desktopExe = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "HardwareHub.exe")
+    if (Test-Path $desktopExe) {
+        Get-Process -Name HardwareHub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 600
+        try {
+            Copy-Item -Path $exe.FullName -Destination $desktopExe -Force
+            Write-Host " -> Copiado automaticamente para a Area de Trabalho: $desktopExe" -ForegroundColor Green
+        } catch {
+            Write-Host " -> [AVISO] Nao foi possivel atualizar na Area de Trabalho: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
     # Sincroniza automaticamente com a pasta na Area de Trabalho, se ela existir
     $desktopDir = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "HardwareHub_Portable")
     if (Test-Path $desktopDir) {

@@ -201,7 +201,7 @@ namespace HardwareHub.ViewModels
 
         private bool _isPawnBannerDismissed = false;
         private bool _isInstallingPawn = false;
-        public bool IsPawnIOMissing => !_isPawnBannerDismissed && _hardwareService.IsInitialized && !HardwareService.IsPawnIOInstalled && Cpu.Temperature <= 0;
+        public bool IsPawnIOMissing => !_isPawnBannerDismissed && _hardwareService.IsInitialized && (!HardwareService.IsPawnIOInstalled || !_hardwareService.HasRealCpuTemperature);
         public bool IsInstallingPawn => _isInstallingPawn;
         public bool CanInstallPawn => !_isInstallingPawn;
         public string PawnButtonText => _isInstallingPawn ? "⏳ Instalando..." : "Instalar Driver ➔";
@@ -220,7 +220,8 @@ namespace HardwareHub.ViewModels
             }
         }
 
-        public bool IsUpdateAvailable => _availableUpdate?.IsAvailable ?? false;
+        private bool _isUpdateBannerDismissed = false;
+        public bool IsUpdateAvailable => !_isUpdateBannerDismissed && (_availableUpdate?.IsAvailable ?? false);
         public string LatestVersionText => _availableUpdate != null ? $"v{_availableUpdate.LatestVersion} ({_availableUpdate.FormattedSize})" : "";
         public string UpdateChangelogSummary => !string.IsNullOrWhiteSpace(_availableUpdate?.Changelog) ? _availableUpdate.Changelog.Trim() : "Melhorias de desempenho e correções de estabilidade.";
 
@@ -293,6 +294,7 @@ namespace HardwareHub.ViewModels
         public ICommand ClearLogsCommand { get; }
         public ICommand CheckForUpdatesCommand { get; }
         public ICommand ApplyUpdateCommand { get; }
+        public ICommand DismissUpdateBannerCommand { get; }
         public ICommand InstallPawnIOCommand { get; }
         public ICommand DismissPawnBannerCommand { get; }
         public ICommand RefreshDisksCommand { get; }
@@ -406,24 +408,27 @@ namespace HardwareHub.ViewModels
 
                 try
                 {
-                    // 1. Tenta pelo winget via SoftwareService
-                    var pawnItem = AllSoftware.FirstOrDefault(x => x.Id == "pawnio");
-                    if (pawnItem != null)
+                    // 1. Tenta instalação direta via instalador embutido / GitHub (instantâneo e funciona offline!)
+                    if (!HardwareService.IsPawnIOInstalled)
                     {
-                        await _softwareService.InstallPackageAsync(pawnItem, msg =>
+                        AppendLog("[DRIVER] Iniciando instalação do driver de sensores PawnIO integrado...");
+                        await _softwareService.InstallPawnIODirectAsync(msg =>
                         {
                             System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
                         });
                     }
 
-                    // 2. Se falhar pelo winget, tenta instalar diretamente via GitHub Setup
+                    // 2. Se falhar o instalador direto, tenta pelo winget
                     if (!HardwareService.IsPawnIOInstalled)
                     {
-                        AppendLog("[DRIVER] Tentando instalação alternativa direta (GitHub Releases)...");
-                        await _softwareService.InstallPawnIODirectAsync(msg =>
+                        var pawnItem = AllSoftware.FirstOrDefault(x => x.Id == "pawnio");
+                        if (pawnItem != null)
                         {
-                            System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
-                        });
+                            await _softwareService.InstallPackageAsync(pawnItem, msg =>
+                            {
+                                System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
+                            });
+                        }
                     }
 
                     if (HardwareService.IsPawnIOInstalled)
@@ -477,6 +482,11 @@ namespace HardwareHub.ViewModels
             ClearLogsCommand = new RelayCommand(_ => LogOutput = "");
             CheckForUpdatesCommand = new RelayCommand(async _ => await CheckForUpdatesAsync(silent: false));
             ApplyUpdateCommand = new RelayCommand(async _ => await ApplyUpdateAsync(), _ => CanApplyUpdate);
+            DismissUpdateBannerCommand = new RelayCommand(_ =>
+            {
+                _isUpdateBannerDismissed = true;
+                OnPropertyChanged(nameof(IsUpdateAvailable));
+            });
 
             RefreshDisksCommand = new RelayCommand(async _ => await RefreshDisksHealthAsync());
             BenchmarkDiskCommand = new RelayCommand(async p =>
@@ -583,13 +593,13 @@ namespace HardwareHub.ViewModels
                     UpdateHardwareMetrics();
                 });
 
-                // O executável portátil não usa o inicializador. Sem temperatura
-                // detectada e sem PawnIO, tenta instalar o driver já na primeira execução.
-                if (!HardwareService.IsPawnIOInstalled && Cpu.Temperature <= 0)
+                // O executável portátil roda de forma autônoma.
+                // Se o PawnIO não estiver instalado ou não houver temperatura real detectada, instala o driver automaticamente.
+                if (!HardwareService.IsPawnIOInstalled || !_hardwareService.HasRealCpuTemperature)
                 {
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        AppendLog("[DRIVER] Sensores térmicos indisponíveis. Tentando instalar PawnIO automaticamente...");
+                        AppendLog("[DRIVER] Sensores térmicos requerem o driver PawnIO. Instalando automaticamente...");
                         InstallPawnIOCommand.Execute(null);
                     });
                 }

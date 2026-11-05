@@ -807,10 +807,35 @@ namespace HardwareHub.Services
         {
             try
             {
-                logCallback("[DRIVER] Baixando instalador oficial do PawnIO (GitHub Releases)...");
                 string tempSetup = Path.Combine(Path.GetTempPath(), "PawnIO_setup.exe");
-                using (var httpClient = new System.Net.Http.HttpClient())
+                bool fileReady = false;
+
+                // 1. Tenta extrair instalador embutido no executável (funciona 100% offline!)
+                try
                 {
+                    var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                    var resName = asm.GetManifestResourceNames()
+                        .FirstOrDefault(n => n.EndsWith("PawnIO_setup.exe", StringComparison.OrdinalIgnoreCase));
+
+                    if (!string.IsNullOrEmpty(resName))
+                    {
+                        using var stream = asm.GetManifestResourceStream(resName);
+                        if (stream != null)
+                        {
+                            logCallback("[DRIVER] Extraindo driver PawnIO integrado (modo offline)...");
+                            using var fs = new FileStream(tempSetup, FileMode.Create, FileAccess.Write, FileShare.None);
+                            await stream.CopyToAsync(fs);
+                            fileReady = true;
+                        }
+                    }
+                }
+                catch { }
+
+                // 2. Se não encontrou embutido, baixa do GitHub Releases
+                if (!fileReady)
+                {
+                    logCallback("[DRIVER] Baixando instalador oficial do PawnIO (GitHub Releases)...");
+                    using var httpClient = new System.Net.Http.HttpClient();
                     httpClient.Timeout = TimeSpan.FromMinutes(2);
                     using var response = await httpClient.GetAsync("https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe");
                     if (!response.IsSuccessStatusCode)
@@ -821,6 +846,7 @@ namespace HardwareHub.Services
 
                     using var fs = new FileStream(tempSetup, FileMode.Create, FileAccess.Write, FileShare.None);
                     await response.Content.CopyToAsync(fs);
+                    fileReady = true;
                 }
 
                 logCallback("[DRIVER] Executando instalador silencioso do driver PawnIO...");

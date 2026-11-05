@@ -16,6 +16,8 @@ dist/
 sensors.log
 crash.log
 crash_domain.log
+.tmp-batch-button-test/
+scratch/
 
 # OS generated
 Thumbs.db
