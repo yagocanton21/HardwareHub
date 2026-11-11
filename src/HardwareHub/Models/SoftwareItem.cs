@@ -25,8 +25,10 @@ namespace HardwareHub.Models
         public string Description { get; set; } = "";
         public string Category { get; set; } = "Utilitários";
         public string WingetId { get; set; } = "";
+        public string WingetSource { get; set; } = "winget";
         public string IconKind { get; set; } = "Apps24";
         public string DefaultInstallArgs { get; set; } = "--silent --accept-package-agreements --accept-source-agreements";
+        public AppPackageDefinition? Definition { get; set; }
 
         public string AppEmoji => Id.ToLowerInvariant() switch
         {

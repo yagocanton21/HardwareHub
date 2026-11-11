@@ -1,0 +1,267 @@
+// Pack pós-formatação do HUB Pro (by Mestres da Informática). Também alimenta a tela "Instalar programas".
+// Para incluir um programa: copie um bloco de "programas" e troque o id do winget (procure com: winget search nome; confira com winget show --id X -e).
+// App da Microsoft Store: "fonte": "msstore", "winget": "<código da Store>" e "pacoteAppx" (nome do pacote em %LOCALAPPDATA%\Packages) para saber se já está instalado.
+// Ícone: salve o logo em Assets\apps\<id>.png (128 px). Sem PNG, a tela usa "glifo" (código Segoe Fluent) num quadrado colorido.
+// "minutos" = tempo aproximado de download + instalação, só para a estimativa da tela (padrão 1).
+// "nomeInstalado" = começo do nome em "Aplicativos instalados"; termine com $ para exigir o nome exato (ex.: "Git$").
+//
+// "tipo": "link" = não instala: o bloco abre a página ("url") e mostra o cupom ("cupom", vazio = sem cupom).
+//   "destaque" = texto do selo dourado "Recomendado pelo canal". Itens de link não entram nos kits nem na fila.
+// "dica" = explicação extra no ⓘ ao lado do nome.
+//
+// "idioma" diz como o HUB garante o português (aparece no ToolTip do bloco):
+//   "nativo"  = o pacote do winget já é a versão em pt-BR (ex.: Mozilla.Firefox.pt-BR) ou usa "locale": "pt-BR"
+//   "ajuste"  = depois de instalar, o HUB grava o idioma do programa ("ajustesIdioma")
+//   "windows" = o programa usa o idioma do Windows (o HUB confere se o Windows está em pt-BR)
+//   "ingles"  = o programa não tem tradução para pt-BR
+// Atenção: "locale": "pt-BR" só funciona quando o manifesto do winget tem instalador em pt-BR (hoje, só o WinRAR);
+// nos outros o winget responde "nenhum instalador aplicável". Se acontecer, o HUB tenta de novo sem o locale.
+{
+  // Etapa "Ativação do Windows" > "Preciso comprar uma chave". Sem "lojaUrl", a opção não aparece.
+  "ativacao": {
+    "lojaNome": "GVGMALL",
+    "lojaUrl": "https://www.gvgmall.com/",
+    "cupom": "GVGMD",
+    "descricao": "Loja onde dá para comprar a chave original do Windows mais barato. O cupom GVGMD dá desconto."
+  },
+
+  "kits": [
+    { "nome": "Essencial", "icone": "E734", "descricao": "Para qualquer PC: navegador, PDF, vídeo, WhatsApp e acesso remoto.",
+      "programas": [ "chrome", "7zip", "vlc", "acrobat", "whatsapp", "anydesk", "lightshot", "vcredist", "vcredist86", "dotnet8", "directx" ] },
+    { "nome": "Gamer", "icone": "E7FC", "descricao": "Para jogar: Steam, Epic, Discord, gravação de gameplay e as bibliotecas que os jogos pedem.",
+      "programas": [ "chrome", "7zip", "vlc", "discord", "steam", "epic", "obs", "fxsound", "lightshot", "vcredist", "vcredist86", "dotnet8", "directx" ] },
+    { "nome": "Escritório", "icone": "E821", "descricao": "Para trabalho e estudo: Office grátis, PDF, Zoom, WhatsApp e ChatGPT.",
+      "programas": [ "chrome", "7zip", "acrobat", "libreoffice", "whatsapp", "zoom", "chatgpt", "anydesk", "lightshot", "vcredist", "dotnet8" ] },
+    { "nome": "Criador de conteúdo", "icone": "E714", "descricao": "Para gravar e editar vídeos: OBS, CapCut, print de tela e som melhor.",
+      "programas": [ "chrome", "7zip", "vlc", "obs", "capcut", "sharex", "fxsound", "fdm", "chatgpt", "vcredist", "vcredist86", "dotnet8" ] },
+    { "nome": "Programador", "icone": "E943", "descricao": "Para programar: VS Code, Git, Python, Node.js e o Terminal.",
+      "programas": [ "chrome", "7zip", "vscode", "git", "python", "nodejs", "terminal", "notepadpp", "powertoys", "claude", "vcredist", "dotnet8" ] },
+    { "nome": "Técnico", "icone": "E90F", "descricao": "Para quem faz manutenção: diagnóstico, partições, pendrive bootável e acesso remoto.",
+      "programas": [ "chrome", "7zip", "anydesk", "notepadpp", "crystaldiskinfo", "cpuz", "hwinfo", "easeus", "rufus", "ventoy", "powertoys", "vcredist", "vcredist86", "dotnet8" ] }
+  ],
+
+  "programas": [
+    // ---------------- Navegadores ----------------
+    { "id": "chrome", "categoria": "Navegadores", "nome": "Google Chrome", "descricao": "Navegador mais usado. Entre com a conta Google para trazer favoritos e senhas.",
+      "winget": "Google.Chrome", "nomeInstalado": "Google Chrome", "idioma": "windows", "marcado": true, "minutos": 1.5 },
+    { "id": "firefox", "categoria": "Navegadores", "nome": "Firefox", "descricao": "Navegador da Mozilla, focado em privacidade. Já vem na versão brasileira.",
+      "winget": "Mozilla.Firefox.pt-BR", "nomeInstalado": "Mozilla Firefox", "idioma": "nativo", "minutos": 1.5 },
+    { "id": "brave", "categoria": "Navegadores", "nome": "Brave", "descricao": "Navegador com bloqueador de anúncios embutido.",
+      "winget": "Brave.Brave", "nomeInstalado": "Brave", "idioma": "windows", "minutos": 1.5 },
+
+    // ---------------- Compactadores ----------------
+    { "id": "7zip", "categoria": "Compactadores", "nome": "7-Zip", "descricao": "Abre e cria .zip, .rar e .7z. Grátis de verdade.",
+      "winget": "7zip.7zip", "nomeInstalado": "7-Zip", "idioma": "ajuste", "marcado": true, "minutos": 0.5,
+      "ajustesIdioma": [ { "tipo": "reg", "chave": "HKCU\\Software\\7-Zip", "valor": "Lang", "kind": "sz", "dados": "pt-br" } ] },
+    { "id": "winrar", "categoria": "Compactadores", "nome": "WinRAR", "descricao": "Compactador clássico (pede licença depois do teste). Escolha ele ou o 7-Zip.",
+      "winget": "RARLab.WinRAR", "locale": "pt-BR", "nomeInstalado": "WinRAR", "idioma": "nativo" },
+
+    // ---------------- Documentos ----------------
+    { "id": "acrobat", "categoria": "Documentos", "nome": "Adobe Acrobat Reader", "descricao": "Leitor de PDF oficial da Adobe (versão multilíngue).",
+      "winget": "Adobe.Acrobat.Reader.64-bit", "nomeInstalado": "Adobe Acrobat", "idioma": "windows", "marcado": true, "minutos": 3 },
+    { "id": "libreoffice", "categoria": "Documentos", "nome": "LibreOffice", "descricao": "Pacote Office grátis: textos, planilhas e apresentações (abre arquivos do Word e Excel).",
+      "winget": "TheDocumentFoundation.LibreOffice", "nomeInstalado": "LibreOffice", "idioma": "windows", "minutos": 4 },
+    { "id": "onlyoffice", "categoria": "Documentos", "nome": "ONLYOFFICE", "descricao": "Office grátis com visual parecido com o Word, Excel e PowerPoint.",
+      "winget": "ONLYOFFICE.DesktopEditors", "nomeInstalado": "ONLYOFFICE", "idioma": "windows", "minutos": 3 },
+    { "id": "wps", "categoria": "Documentos", "nome": "WPS Office", "descricao": "Office leve e grátis: textos, planilhas, apresentações e PDF (mostra anúncios).",
+      "winget": "Kingsoft.WPSOffice", "nomeInstalado": "WPS Office", "idioma": "windows", "minutos": 3 },
+    { "id": "sumatra", "categoria": "Documentos", "nome": "SumatraPDF", "descricao": "Leitor de PDF e e-book bem leve, ideal para PC fraco.",
+      "winget": "SumatraPDF.SumatraPDF", "nomeInstalado": "SumatraPDF", "idioma": "windows", "minutos": 0.5 },
+
+    // ---------------- Comunicação ----------------
+    { "id": "whatsapp", "categoria": "Comunicação", "nome": "WhatsApp", "descricao": "WhatsApp oficial para o PC (vem da Microsoft Store).",
+      "winget": "9NKSQGP7F2NH", "fonte": "msstore", "pacoteAppx": "5319275A.WhatsAppDesktop", "idioma": "windows", "marcado": true, "minutos": 2 },
+    { "id": "discord", "categoria": "Comunicação", "nome": "Discord", "descricao": "Chat de voz e texto para jogar com os amigos.",
+      "winget": "Discord.Discord", "nomeInstalado": "Discord", "idioma": "windows", "usuario": true, "minutos": 1.5 },
+    { "id": "telegram", "categoria": "Comunicação", "nome": "Telegram", "descricao": "Mensageiro com grupos e canais grandes.",
+      "winget": "Telegram.TelegramDesktop", "nomeInstalado": "Telegram Desktop", "idioma": "windows" },
+    { "id": "zoom", "categoria": "Comunicação", "nome": "Zoom", "descricao": "Reuniões e aulas por vídeo.",
+      "winget": "Zoom.Zoom", "nomeInstalado": "Zoom", "idioma": "windows", "minutos": 1.5 },
+
+    // ---------------- Inteligência artificial ----------------
+    { "id": "chatgpt", "categoria": "Inteligência artificial", "nome": "ChatGPT", "descricao": "App oficial da OpenAI: tire dúvidas, escreva textos e resuma arquivos (vem da Microsoft Store).",
+      "winget": "9PLM9XGG6VKS", "fonte": "msstore", "pacoteAppx": "OpenAI.Codex", "idioma": "windows", "minutos": 2 },
+    { "id": "claude", "categoria": "Inteligência artificial", "nome": "Claude", "descricao": "App oficial da Anthropic: assistente de IA para textos, estudos e trabalho.",
+      "winget": "Anthropic.Claude", "pacoteAppx": "Claude", "nomeInstalado": "Claude$", "idioma": "windows", "minutos": 2 },
+
+    // ---------------- Criação de vídeo ----------------
+    { "id": "obs", "categoria": "Criação de vídeo", "nome": "OBS Studio", "descricao": "Grava a tela e faz lives no YouTube e na Twitch. Grátis e sem marca d'água.",
+      "winget": "OBSProject.OBSStudio", "nomeInstalado": "OBS Studio", "idioma": "windows", "minutos": 2 },
+    { "id": "capcut", "categoria": "Criação de vídeo", "nome": "CapCut", "descricao": "Editor de vídeo fácil, com legendas automáticas e efeitos prontos.",
+      "winget": "ByteDance.CapCut", "nomeInstalado": "CapCut", "idioma": "windows", "minutos": 3 },
+    { "id": "davinci", "categoria": "Criação de vídeo", "nome": "DaVinci Resolve", "tipo": "link",
+      "descricao": "Editor de vídeo profissional e grátis. Abre a página oficial da Blackmagic para baixar (pede um cadastro rápido).",
+      "url": "https://www.blackmagicdesign.com/br/products/davinciresolve", "glifo": "E714" },
+
+    // ---------------- Vídeo e música ----------------
+    { "id": "vlc", "categoria": "Vídeo e música", "nome": "VLC", "descricao": "Player que abre qualquer vídeo ou música, sem precisar de codecs.",
+      "winget": "VideoLAN.VLC", "nomeInstalado": "VLC media player", "idioma": "ajuste", "marcado": true,
+      "ajustesIdioma": [ { "tipo": "reg", "chave": "HKCU\\Software\\VideoLAN\\VLC", "valor": "Lang", "kind": "sz", "dados": "pt_BR" } ] },
+    { "id": "spotify", "categoria": "Vídeo e música", "nome": "Spotify", "descricao": "Músicas e podcasts.",
+      "winget": "Spotify.Spotify", "nomeInstalado": "Spotify", "idioma": "windows", "usuario": true, "minutos": 1.5 },
+    { "id": "deezer", "categoria": "Vídeo e música", "nome": "Deezer", "descricao": "Músicas, playlists e podcasts (vem da Microsoft Store).",
+      "winget": "9NBLGGH6J7VV", "fonte": "msstore", "pacoteAppx": "Deezer.62021768415AF", "idioma": "windows", "minutos": 1.5 },
+    { "id": "fxsound", "categoria": "Vídeo e música", "nome": "FxSound", "descricao": "Deixa o som do PC mais alto e mais nítido, com equalizador e grave.",
+      "winget": "FxSound.FxSound", "nomeInstalado": "FxSound", "idioma": "windows", "minutos": 1 },
+
+    // ---------------- Streaming ----------------
+    { "id": "netflix", "categoria": "Streaming", "nome": "Netflix", "descricao": "Filmes e séries, com download para ver sem internet (vem da Microsoft Store).",
+      "winget": "9WZDNCRFJ3TJ", "fonte": "msstore", "pacoteAppx": "4DF9E0F8.Netflix", "idioma": "windows", "minutos": 1 },
+    { "id": "primevideo", "categoria": "Streaming", "nome": "Prime Video", "descricao": "Filmes e séries da Amazon (vem da Microsoft Store).",
+      "winget": "9P6RC76MSMMJ", "fonte": "msstore", "pacoteAppx": "AmazonVideo.PrimeVideo", "idioma": "windows", "minutos": 1 },
+    { "id": "disneyplus", "categoria": "Streaming", "nome": "Disney+", "descricao": "Disney, Pixar, Marvel e Star Wars (vem da Microsoft Store).",
+      "winget": "9NXQXXLFST89", "fonte": "msstore", "pacoteAppx": "Disney.37853FC22B2CE", "idioma": "windows", "minutos": 1 },
+
+    // ---------------- Jogos ----------------
+    { "id": "steam", "categoria": "Jogos", "nome": "Steam", "descricao": "Loja e biblioteca de jogos da Valve.",
+      "winget": "Valve.Steam", "nomeInstalado": "Steam", "idioma": "ajuste", "minutos": 2,
+      "ajustesIdioma": [ { "tipo": "reg", "chave": "HKCU\\Software\\Valve\\Steam", "valor": "Language", "kind": "sz", "dados": "brazilian" } ] },
+    { "id": "epic", "categoria": "Jogos", "nome": "Epic Games", "descricao": "Loja da Epic, com jogos grátis toda semana.",
+      "winget": "EpicGames.EpicGamesLauncher", "nomeInstalado": "Epic Games Launcher", "idioma": "windows", "minutos": 3 },
+
+    // ---------------- Personalização ----------------
+    { "id": "lively", "categoria": "Personalização", "nome": "Lively Wallpaper", "descricao": "Papel de parede animado (vídeos e cenas que se mexem). Pausa sozinho nos jogos.",
+      "winget": "rocksdanister.LivelyWallpaper", "nomeInstalado": "Lively Wallpaper", "idioma": "windows", "minutos": 1.5 },
+    { "id": "bingwallpaper", "categoria": "Personalização", "nome": "Bing Wallpaper", "descricao": "App da Microsoft que troca o papel de parede todo dia por uma foto bonita do Bing.",
+      "winget": "Microsoft.BingWallpaper", "pacoteAppx": "Microsoft.BingWallpaper", "nomeInstalado": "Bing Wallpaper", "idioma": "windows", "minutos": 0.5 },
+    { "id": "backiee", "categoria": "Personalização", "nome": "backiee", "descricao": "Papéis de parede em alta resolução (até 8K), com troca automática (vem da Microsoft Store).",
+      "winget": "9WZDNCRFHZCD", "fonte": "msstore", "idioma": "windows", "minutos": 1 },
+    { "id": "sucrose", "categoria": "Personalização", "nome": "Sucrose Wallpaper Engine", "descricao": "Papel de parede animado grátis e completo: vídeos, sites e cenas interativas. Pausa sozinho nos jogos e na bateria.",
+      "winget": "Taiizor.SucroseWallpaperEngine", "nomeInstalado": "Sucrose", "idioma": "windows", "minutos": 1.5 },
+    { "id": "translucenttb", "categoria": "Personalização", "nome": "TranslucentTB", "descricao": "Deixa a barra de tarefas transparente ou com efeito de vidro. Leve: quase não usa memória.",
+      "winget": "CharlesMilette.TranslucentTB", "nomeInstalado": "TranslucentTB", "idioma": "windows", "minutos": 0.5 },
+
+    // ---------------- Utilitários ----------------
+    { "id": "anydesk", "categoria": "Utilitários", "nome": "AnyDesk", "descricao": "Acesso remoto: para alguém de confiança ajudar no seu PC à distância.",
+      "winget": "AnyDesk.AnyDesk", "nomeInstalado": "AnyDesk", "idioma": "windows", "marcado": true, "minutos": 0.5 },
+    { "id": "lightshot", "categoria": "Utilitários", "nome": "Lightshot", "descricao": "Print de um pedaço da tela com a tecla Print Screen.",
+      "winget": "Skillbrains.Lightshot", "nomeInstalado": "Lightshot", "idioma": "windows", "marcado": true, "minutos": 0.5 },
+    { "id": "fdm", "categoria": "Utilitários", "nome": "Free Download Manager", "descricao": "Gerenciador de downloads: baixa mais rápido e continua de onde parou.",
+      "winget": "SoftDeluxe.FreeDownloadManager", "nomeInstalado": "Free Download Manager", "idioma": "windows", "minutos": 1.5 },
+    { "id": "notepadpp", "categoria": "Utilitários", "nome": "Notepad++", "descricao": "Bloco de notas turbinado, bom para editar arquivos de configuração.",
+      "winget": "Notepad++.Notepad++", "nomeInstalado": "Notepad++", "idioma": "ajuste", "minutos": 0.5,
+      "ajustesIdioma": [ { "tipo": "copiar", "de": "%ProgramFiles%\\Notepad++\\localization\\brazilian_portuguese.xml", "para": "%AppData%\\Notepad++\\nativeLang.xml" } ] },
+    { "id": "powertoys", "categoria": "Utilitários", "nome": "PowerToys", "descricao": "Ferramentas extras da Microsoft: renomear em massa, seletor de cor, atalhos.",
+      "winget": "Microsoft.PowerToys", "nomeInstalado": "PowerToys", "idioma": "windows", "minutos": 2 },
+    { "id": "sharex", "categoria": "Utilitários", "nome": "ShareX", "descricao": "Print e gravação de tela completos, com editor.",
+      "winget": "ShareX.ShareX", "nomeInstalado": "ShareX", "idioma": "windows" },
+    { "id": "qbittorrent", "categoria": "Utilitários", "nome": "qBittorrent", "descricao": "Cliente de torrent sem anúncios.",
+      "winget": "qBittorrent.qBittorrent", "nomeInstalado": "qBittorrent", "idioma": "windows" },
+    { "id": "unigetui", "categoria": "Utilitários", "nome": "UniGetUI", "descricao": "Atualiza e instala programas de várias lojas (winget, Store, Chocolatey, Scoop) numa tela só.",
+      "winget": "Devolutions.UniGetUI", "nomeInstalado": "UniGetUI", "idioma": "windows", "minutos": 1 },
+
+    // ---------------- Diagnóstico e disco ----------------
+    { "id": "crystaldiskinfo", "categoria": "Diagnóstico e disco", "nome": "CrystalDiskInfo", "descricao": "Mostra a saúde e a temperatura do HD/SSD.",
+      "winget": "CrystalDewWorld.CrystalDiskInfo", "nomeInstalado": "CrystalDiskInfo", "idioma": "windows", "minutos": 0.5 },
+    { "id": "easeus", "categoria": "Diagnóstico e disco", "nome": "EaseUS Partition Master", "descricao": "Aumenta, diminui e junta partições do HD/SSD sem formatar (versão grátis).",
+      "winget": "EaseUS.PartitionMaster", "nomeInstalado": "EaseUS Partition Master", "idioma": "windows", "minutos": 2,
+      "dica": "Mexer em partição é seguro quando feito com calma, mas faça backup dos arquivos importantes antes. Na instalação, a versão grátis pode oferecer outros produtos: é só recusar." },
+    { "id": "cpuz", "categoria": "Diagnóstico e disco", "nome": "CPU-Z", "descricao": "Detalhes do processador, placa-mãe e memória.",
+      "winget": "CPUID.CPU-Z", "nomeInstalado": "CPUID CPU-Z", "idioma": "ingles", "minutos": 0.5 },
+    { "id": "hwinfo", "categoria": "Diagnóstico e disco", "nome": "HWiNFO", "descricao": "Temperaturas e sensores de todo o PC.",
+      "winget": "REALiX.HWiNFO", "nomeInstalado": "HWiNFO", "idioma": "ingles" },
+
+    // ---------------- Pendrive bootável ----------------
+    { "id": "rufus", "categoria": "Pendrive bootável", "nome": "Rufus", "descricao": "Cria um pendrive para instalar o Windows (ou outro sistema) a partir de um ISO.",
+      "winget": "Rufus.Rufus", "nomeInstalado": "Rufus", "idioma": "windows", "minutos": 0.3,
+      "dica": "Rufus: um sistema por pendrive. Grava um ISO (ex.: Windows 11) e o pendrive fica pronto para formatar um PC. Apaga tudo o que tinha no pendrive." },
+    { "id": "ventoy", "categoria": "Pendrive bootável", "nome": "Ventoy", "descricao": "Um pendrive com vários ISOs: copie os arquivos e escolha qual sistema ligar.",
+      "winget": "Ventoy.Ventoy", "nomeInstalado": "Ventoy", "idioma": "windows", "minutos": 0.5,
+      "dica": "Ventoy: vários sistemas no mesmo pendrive. Prepare o pendrive uma vez e depois é só copiar os ISOs para ele, como arquivos comuns. Na hora de ligar o PC, aparece um menu para escolher." },
+    { "id": "baixar-windows", "categoria": "Pendrive bootável", "nome": "Baixar o Windows oficial", "tipo": "link",
+      "descricao": "Abre a página da Microsoft para baixar o ISO original do Windows 11 (grátis).",
+      "url": "https://www.microsoft.com/pt-br/software-download/windows11", "glifo": "E896",
+      "dica": "Baixe sempre da Microsoft: ISO de site desconhecido pode vir com vírus. Depois use o Rufus ou o Ventoy para colocar no pendrive." },
+
+    // ---------------- Programação ----------------
+    { "id": "vscode", "categoria": "Programação", "nome": "Visual Studio Code", "descricao": "Editor de código grátis da Microsoft, com extensões para qualquer linguagem.",
+      "winget": "Microsoft.VisualStudioCode", "nomeInstalado": "Microsoft Visual Studio Code", "idioma": "ingles", "minutos": 1.5,
+      "dica": "Abre em inglês. Para português: dentro dele, aperte Ctrl+Shift+P, digite \"Configure Display Language\" e escolha Português (Brasil)." },
+    { "id": "git", "categoria": "Programação", "nome": "Git", "descricao": "Controle de versões do código (usado com GitHub e GitLab).",
+      "winget": "Git.Git", "nomeInstalado": "Git$", "idioma": "ingles", "minutos": 1.5 },
+    { "id": "python", "categoria": "Programação", "nome": "Python", "descricao": "Linguagem de programação mais usada para aprender, automatizar e IA (versão 3.14).",
+      "winget": "Python.Python.3.14", "nomeInstalado": "Python 3.14", "idioma": "ingles", "minutos": 1.5 },
+    { "id": "nodejs", "categoria": "Programação", "nome": "Node.js LTS", "descricao": "Roda JavaScript fora do navegador. Versão LTS, a mais estável.",
+      "winget": "OpenJS.NodeJS.LTS", "nomeInstalado": "Node.js", "idioma": "ingles", "minutos": 1 },
+    { "id": "terminal", "categoria": "Programação", "nome": "Windows Terminal", "descricao": "Terminal moderno da Microsoft com abas (o Windows 11 já traz).",
+      "winget": "9N0DX20HK701", "fonte": "msstore", "pacoteAppx": "Microsoft.WindowsTerminal", "idioma": "windows", "minutos": 1 },
+    { "id": "opencode-desktop", "categoria": "Programação", "nome": "OpenCode", "descricao": "Assistente de programação com IA, com janela própria. Funciona com várias IAs (inclusive Claude e ChatGPT).",
+      "winget": "SST.OpenCodeDesktop", "idioma": "ingles", "minutos": 1,
+      "dica": "Abre em inglês. Para usar, entre com a sua conta de uma IA (Claude, ChatGPT ou outra) ou use os modelos grátis que ele oferece." },
+    { "id": "opencode-cli", "categoria": "Programação", "nome": "OpenCode (terminal)", "descricao": "O mesmo assistente de programação com IA, para usar no Terminal: digite opencode dentro da pasta do projeto.",
+      "winget": "SST.opencode", "idioma": "ingles", "minutos": 1,
+      "dica": "Roda no Terminal, em inglês. Depois de instalar, feche e abra o Terminal de novo e digite opencode." },
+    { "id": "kilocode-cli", "categoria": "Programação", "nome": "Kilo Code (terminal)", "descricao": "Agente de programação com IA de código aberto, para usar no Terminal: digite kilo dentro da pasta do projeto.",
+      "winget": "KiloCode.Kilo", "idioma": "ingles", "minutos": 1,
+      "dica": "Roda no Terminal, em inglês. Depois de instalar, feche e abra o Terminal de novo e digite kilo." },
+    { "id": "mimocode-cli", "categoria": "Programação", "nome": "MiMo Code (terminal)", "descricao": "Agente de programação com IA da Xiaomi, para usar no Terminal: digite mimo dentro da pasta do projeto.",
+      "winget": "Xiaomi.MiMoCode", "idioma": "ingles", "minutos": 1,
+      "dica": "Programa novo (versão 0.1), ainda em desenvolvimento pela Xiaomi. Roda no Terminal, em inglês: depois de instalar, feche e abra o Terminal de novo e digite mimo." },
+
+    // ---------------- Base para jogos e programas ----------------
+    { "id": "vcredist", "categoria": "Base para jogos e programas", "nome": "Visual C++ 2015-2022 (64 bits)", "descricao": "Bibliotecas que quase todo jogo e programa pede. Evita erro de \"VCRUNTIME140.dll\".",
+      "winget": "Microsoft.VCRedist.2015+.x64", "nomeInstalado": "Microsoft Visual C++ 2015-", "idioma": "windows", "marcado": true, "glifo": "E943", "minutos": 0.5 },
+    { "id": "vcredist86", "categoria": "Base para jogos e programas", "nome": "Visual C++ 2015-2022 (32 bits)", "descricao": "A mesma coisa para programas e jogos de 32 bits.",
+      "winget": "Microsoft.VCRedist.2015+.x86", "nomeInstalado": "Microsoft Visual C++ 2015-", "idioma": "windows", "marcado": true, "glifo": "E943", "minutos": 0.5 },
+    { "id": "dotnet8", "categoria": "Base para jogos e programas", "nome": ".NET Desktop Runtime 8", "descricao": "Necessário para muitos programas modernos do Windows.",
+      "winget": "Microsoft.DotNet.DesktopRuntime.8", "nomeInstalado": "Microsoft Windows Desktop Runtime - 8.", "idioma": "windows", "marcado": true, "minutos": 1 },
+    { "id": "directx", "categoria": "Base para jogos e programas", "nome": "DirectX (bibliotecas antigas)", "descricao": "Arquivos do DirectX 9 que jogos mais velhos ainda pedem (d3dx9_43.dll etc.).",
+      "winget": "Microsoft.DirectX", "nomeInstalado": "", "idioma": "windows", "marcado": true, "glifo": "E7FC", "minutos": 1 }
+  ],
+
+  // Ajustes do tweaks.json que aparecem no pack (o valor original é salvo e dá para desfazer na Central Desfazer).
+  "ajustes": [
+    { "id": "desativar-sugestoes-iniciar", "marcado": true },
+    { "id": "desativar-apps-automaticos", "marcado": true },
+    { "id": "desativar-dicas-windows", "marcado": true },
+    { "id": "desativar-bing-iniciar", "marcado": true },
+    { "id": "desativar-id-anuncio", "marcado": true },
+    { "id": "mostrar-extensoes", "marcado": true },
+    { "id": "abrir-este-pc", "marcado": true },
+    { "id": "icone-este-computador", "marcado": true },
+    { "id": "historico-area-transferencia", "marcado": true },
+    { "id": "efeitos-visuais-leves", "marcado": true },
+    // Num Lock, aceleração do mouse e Game DVR ficam desmarcados: em notebook o Num Lock pode trocar letras por números
+    // na senha, sem aceleração o touchpad fica lento, e o Game DVR desligado para a gravação da Game Bar.
+    { "id": "numlock-inicio", "marcado": false },
+    { "id": "sem-teclas-aderentes", "marcado": true },
+    { "id": "sem-aceleracao-mouse", "marcado": false },
+    { "id": "desativar-gamedvr", "marcado": false },
+    { "id": "wu-sem-reinicio", "marcado": true },
+    { "id": "win11-menu-classico", "marcado": false },
+    { "id": "modo-escuro", "marcado": false }
+  ],
+
+  // Ações únicas (rodam uma vez, em PowerShell). "verificar" devolve True quando já está feito.
+  "acoes": [
+    { "id": "windows-ptbr", "grupo": "Idioma, região e horário", "minutos": 10, "titulo": "Windows em português (Brasil)", "marcado": false, "reiniciar": "reboot",
+      "descricao": "Baixa e ativa o idioma pt-BR do Windows. Os programas que seguem o idioma do Windows ficam em português. Pode levar alguns minutos.",
+      "verificar": "(Get-WinUILanguageOverride).Name -eq 'pt-BR' -or ([Globalization.CultureInfo]::CurrentUICulture.Name -eq 'pt-BR')",
+      "executar": "Import-Module LanguagePackManagement -ErrorAction Stop; Install-Language pt-BR -CopyToSettings -ErrorAction Stop | Out-Null; Set-WinUILanguageOverride -Language pt-BR" },
+    { "id": "formato-ptbr", "grupo": "Idioma, região e horário", "minutos": 0.2, "titulo": "Data, hora e moeda no padrão brasileiro", "marcado": true,
+      "descricao": "Datas em dd/mm/aaaa, vírgula nos decimais, R$ e região Brasil (para a Microsoft Store mostrar apps brasileiros).",
+      "verificar": "(Get-Culture).Name -eq 'pt-BR' -and (Get-WinHomeLocation).GeoId -eq 32",
+      "executar": "Set-Culture pt-BR; Set-WinHomeLocation -GeoId 32" },
+    { "id": "teclado-abnt2", "grupo": "Idioma, região e horário", "minutos": 0.3, "titulo": "Teclado ABNT2 (com Ç)", "marcado": true,
+      "descricao": "Adiciona o teclado brasileiro ABNT2 se o PC ainda não tiver um teclado brasileiro. Os layouts que você já tem continuam lá. Se o seu teclado é americano (sem Ç), desmarque.",
+      // 0416:00020409 = português com teclado Estados Unidos-Internacional (notebook importado): já está configurado, não mexe
+      "verificar": "$t = (Get-WinUserLanguageList).InputMethodTips; $t -contains '0416:00010416' -or $t -contains '0416:00000416' -or $t -contains '0416:00020409'",
+      "executar": "$l = Get-WinUserLanguageList; $pt = $l | Where-Object LanguageTag -eq 'pt-BR'; if (-not $pt) { $l.Add('pt-BR'); $pt = $l | Where-Object LanguageTag -eq 'pt-BR' }; if ($pt.InputMethodTips -notcontains '0416:00010416') { $pt.InputMethodTips.Add('0416:00010416') }; Set-WinUserLanguageList $l -Force" },
+    { "id": "relogio", "grupo": "Idioma, região e horário", "minutos": 0.2, "titulo": "Acertar o relógio pela internet", "marcado": true,
+      "descricao": "Liga o serviço de horário do Windows e sincroniza agora. Relógio errado quebra sites com cadeado (HTTPS).",
+      "executar": "Set-Service w32time -StartupType Automatic; Start-Service w32time; w32tm /resync /force | Out-Null" },
+    { "id": "fuso-brasilia", "grupo": "Idioma, região e horário", "minutos": 0.1, "titulo": "Fuso horário de Brasília", "marcado": false,
+      "descricao": "Só marque se você mora no horário de Brasília (SP, RJ, MG, Sul, Nordeste, GO, DF...).",
+      "verificar": "(Get-TimeZone).Id -eq 'E. South America Standard Time'",
+      "executar": "Set-TimeZone -Id 'E. South America Standard Time'" },
+    { "id": "protecao-sistema", "grupo": "Segurança e energia", "minutos": 0.3, "titulo": "Ligar a Proteção do Sistema (pontos de restauração)", "marcado": true,
+      "descricao": "Em PC recém-formatado ela costuma vir desligada. Com ela ligada, dá para voltar o Windows se algo der errado.",
+      "verificar": "[bool](Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SPP\\Clients' -ErrorAction SilentlyContinue).'{09F7EDC5-294E-4180-AF6A-FB0E6A0E9513}'",
+      "executar": "Enable-ComputerRestore -Drive \"$env:SystemDrive\\\"" },
+    { "id": "alto-desempenho", "grupo": "Segurança e energia", "minutos": 0.1, "titulo": "Plano de energia Alto desempenho", "marcado": false,
+      "descricao": "Recomendado só para PC de mesa. Em notebook gasta mais bateria.",
+      "verificar": "(powercfg /getactivescheme) -match '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'",
+      "executar": "powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c; if ($LASTEXITCODE -ne 0) { $g = (powercfg /duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c) -replace '.*?([0-9a-f-]{36}).*', '$1'; powercfg /setactive $g }" }
+  ]
+}
+

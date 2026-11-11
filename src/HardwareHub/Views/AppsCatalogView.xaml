@@ -1,0 +1,698 @@
+<UserControl x:Class="HardwareHub.Views.AppsCatalogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="860"
+             SizeChanged="OnViewSizeChanged">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- DataTemplate compartilhado para Cards de Programa (curados, importados e busca online) -->
+        <DataTemplate x:Key="ProgramCardTemplate">
+            <Border x:Name="CardRoot"
+                    Background="#1E2028"
+                    BorderBrush="#2C303B"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="14"
+                    Margin="0,0,10,10"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="OnProgramCardClick">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Topo: Icone PNG oficial (ou Glifo), Titulo + Dica/Idioma, Checkbox circular -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Container do Icone -->
+                        <Border Grid.Column="0" Width="40" Height="40" CornerRadius="9"
+                                Background="#262934" Margin="0,0,12,0" VerticalAlignment="Top">
+                            <Grid>
+                                <Image Source="{Binding IconImage}"
+                                       Width="30" Height="30"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding HasIconImage, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="{Binding Glyph}"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="20"
+                                           Foreground="#60A5FA"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasIconImage}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                        <!-- Nome + selo de idioma + dica -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"
+                                           Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" MaxWidth="165" />
+
+                                <Border Background="#282E3E" CornerRadius="4" Padding="5,1" Margin="6,0,0,0"
+                                        VerticalAlignment="Center" ToolTip="{Binding LanguageTooltip}"
+                                        Visibility="{Binding HasLanguageBadge, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{Binding LanguageBadge}" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                </Border>
+
+                                <Border Width="16" Height="16" CornerRadius="8" Background="#272B38"
+                                        Margin="6,0,0,0" VerticalAlignment="Center"
+                                        ToolTip="{Binding Tip}"
+                                        Visibility="{Binding HasTip, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="i" FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Selo dourado "Recomendado pelo canal" (ex: Kaspersky) -->
+                            <Border Background="#3B2D12" BorderBrush="#92400E" BorderThickness="1"
+                                    CornerRadius="5" Padding="7,2" Margin="0,5,0,0" HorizontalAlignment="Left"
+                                    Visibility="{Binding HasHighlight, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="★ Recomendado pelo canal" FontSize="10.5" FontWeight="SemiBold" Foreground="#FBBF24" />
+                            </Border>
+
+                            <!-- Subtitulo publisher/ID somente para resultados da busca online -->
+                            <TextBlock Text="{Binding Publisher}" FontSize="11" Foreground="#71717A"
+                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                       Visibility="{Binding IsOnlineResult, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <!-- Checkbox circular de selecao -->
+                        <Border Grid.Column="2" x:Name="CheckCircle"
+                                Width="20" Height="20" CornerRadius="10"
+                                BorderBrush="#475569" BorderThickness="1.6" Background="Transparent"
+                                VerticalAlignment="Top" Margin="6,2,0,0"
+                                Visibility="{Binding ShowCheckbox, Converter={StaticResource BoolToVis}}">
+                            <TextBlock x:Name="CheckMark" Text="✓" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                        </Border>
+                    </Grid>
+
+                    <!-- Descricao + Destaque promocional -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#A1A1AA"
+                                   TextWrapping="Wrap" LineHeight="17" />
+
+                        <TextBlock Text="{Binding HighlightText}" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#FBBF24" TextWrapping="Wrap" LineHeight="17" Margin="0,8,0,0"
+                                   Visibility="{Binding HasHighlight, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+
+                    <!-- Rodape do Card -->
+                    <StackPanel Grid.Row="2">
+                        <!-- Barra de progresso quando em instalacao -->
+                        <StackPanel Visibility="{Binding IsInstalling, Converter={StaticResource BoolToVis}}" Margin="0,0,0,4">
+                            <ProgressBar IsIndeterminate="True" Height="4" Background="#27272A" Foreground="#3B82F6" BorderThickness="0" Margin="0,0,0,5" />
+                            <TextBlock Text="{Binding InstallStatusText}" FontSize="11" Foreground="#60A5FA" FontWeight="SemiBold" />
+                        </StackPanel>
+
+                        <!-- Acoes para Cards tipo Link (Kaspersky / DaVinci / Windows ISO) -->
+                        <WrapPanel Visibility="{Binding IsLink, Converter={StaticResource BoolToVis}}" Margin="0,2,0,0">
+                            <Button Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Background="#3B82F6" Foreground="#FFFFFF" FontSize="12" FontWeight="SemiBold"
+                                    Padding="12,6" BorderThickness="0" Cursor="Hand" Margin="0,0,8,6">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="lnkBtn" Background="{TemplateBinding Background}" CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="lnkBtn" Property="Background" Value="#2563EB" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="Abrir página ↗" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasHighlight}" Value="True">
+                                                    <Setter Property="Text" Value="Ver oferta ↗" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+
+                            <Button Command="{Binding DataContext.CopyCouponCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Visibility="{Binding HasCoupon, Converter={StaticResource BoolToVis}}"
+                                    Background="#272A36" Foreground="#E2E8F0" FontSize="11.5" FontWeight="SemiBold"
+                                    Padding="11,6" BorderThickness="1" BorderBrush="#3F4454" Cursor="Hand" Margin="0,0,0,6">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="cpnBtn" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="cpnBtn" Property="Background" Value="#323748" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding CouponButtonText}" />
+                            </Button>
+                        </WrapPanel>
+
+                        <!-- Rodape de status para instalaveis (Ja instalado / Erro / Tempo estimado + Fonte) -->
+                        <Grid>
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLink}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsInstalling}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+
+                            <!-- Selo Já instalado -->
+                            <Border HorizontalAlignment="Left" Background="#172A45" BorderBrush="#1E40AF" BorderThickness="1"
+                                    CornerRadius="6" Padding="8,3"
+                                    Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="✓ Já instalado" FontSize="11" FontWeight="SemiBold" Foreground="#60A5FA" />
+                            </Border>
+
+                            <!-- Mensagem de erro caso tenha falhado -->
+                            <TextBlock Text="{Binding InstallStatusText}" FontSize="11" Foreground="#F87171"
+                                       TextWrapping="Wrap" ToolTip="{Binding InstallStatusText}"
+                                       Visibility="{Binding HasFailed, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- Tempo e fonte quando disponivel -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding HasFailed}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="{Binding TimeEstimateText}" FontSize="11" Foreground="#64748B" />
+                                <TextBlock Text=" · " FontSize="11" Foreground="#475569" />
+                                <TextBlock Text="{Binding SourceBadgeText}" FontSize="11" Foreground="#64748B" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasHighlight}" Value="True">
+                    <Setter TargetName="CardRoot" Property="BorderBrush" Value="#D97706" />
+                    <Setter TargetName="CardRoot" Property="Background">
+                        <Setter.Value>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#1F2028" Offset="0" />
+                                <GradientStop Color="#2B2318" Offset="1" />
+                            </LinearGradientBrush>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter TargetName="CardRoot" Property="Cursor" Value="Arrow" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLink}" Value="True">
+                    <Setter TargetName="CardRoot" Property="Cursor" Value="Arrow" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="CardRoot" Property="BorderBrush" Value="#3B82F6" />
+                    <Setter TargetName="CardRoot" Property="Background" Value="#1E2740" />
+                    <Setter TargetName="CheckCircle" Property="Background" Value="#3B82F6" />
+                    <Setter TargetName="CheckCircle" Property="BorderBrush" Value="#3B82F6" />
+                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                    <Setter TargetName="CardRoot" Property="Cursor" Value="Arrow" />
+                    <Setter TargetName="CardRoot" Property="Background" Value="#191D26" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER (Identico ao HUB Pro: Programas + Winget Pronto pill + Contagem instalados + Acoes secundarias) -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Programas" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <Border Width="18" Height="18" CornerRadius="9" Background="#262A36" Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Catálogo oficial curado com ícones reais, suporte a Winget e Microsoft Store.">
+                        <TextBlock Text="i" FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </StackPanel>
+                <TextBlock Text="Instale programas oficiais em poucos cliques, com seleção por kits e instalador silencioso."
+                           FontSize="12.5" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <!-- Pill Status Winget -->
+                <Button Command="{Binding RepairWingetCommand}" Cursor="Hand" BorderThickness="0" Padding="0" Margin="0,0,8,0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="IsEnabled" Value="False" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsWingetReady}" Value="False">
+                                    <Setter Property="IsEnabled" Value="True" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="wgPill" CornerRadius="8" Padding="11,6" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#163326" />
+                                        <Setter Property="BorderBrush" Value="#24533C" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWingetReady}" Value="False">
+                                                <Setter Property="Background" Value="#3D2614" />
+                                                <Setter Property="BorderBrush" Value="#92400E" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding WingetBadgeText}" FontSize="11.5" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#4ADE80" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsWingetReady}" Value="False">
+                                                    <Setter Property="Foreground" Value="#FBBF24" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- Pill X de Y ja instalados -->
+                <Border Background="#1F2432" BorderBrush="#2E3548" BorderThickness="1" CornerRadius="8"
+                        Padding="11,6" Margin="0,0,8,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding InstalledCounterText}" FontSize="11.5" FontWeight="SemiBold" Foreground="#94A3B8" />
+                </Border>
+
+                <!-- Botao Importar Lista / .ubundle -->
+                <Button Command="{Binding ImportWingetFileCommand}" Cursor="Hand" BorderThickness="0" Padding="10,6" Margin="0,0,8,0"
+                        ToolTip="Importar lista (.ubundle do UniGetUI, .json do Winget ou .txt)">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="impB" Background="#252938" BorderBrush="#343B4E" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <TextBlock Text="📥 Importar" FontSize="11.5" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="impB" Property="Background" Value="#31374B" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- Botao Reverificar Instalados -->
+                <Button Command="{Binding RefreshStatusCommand}" Cursor="Hand" BorderThickness="0" Padding="10,6"
+                        ToolTip="Verificar novamente quais programas já estão instalados">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="refB" Background="#252938" BorderBrush="#343B4E" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <TextBlock Text="↻" FontSize="13" FontWeight="Bold" Foreground="#CBD5E1" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="refB" Property="Background" Value="#31374B" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </WrapPanel>
+        </Grid>
+
+        <!-- BARRA DE BUSCA GLOBAL (Filtra localmente + busca ao vivo no Winget e Microsoft Store) -->
+        <Border Grid.Row="1" Background="#1D1F27" BorderBrush="#2C303D" BorderThickness="1"
+                CornerRadius="10" Padding="14,4" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="🔍" FontSize="13" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBox Grid.Column="1" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Background="Transparent" Foreground="#F8FAFC" BorderThickness="0"
+                         FontSize="13" VerticalContentAlignment="Center" CaretBrush="#FFFFFF" Padding="0,7" />
+                <TextBlock Grid.Column="1" Text="Procure qualquer programa pelo nome (ex.: vlc, gimp, zoom)..."
+                           FontSize="13" Foreground="#64748B" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasSearchQuery}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <Button Grid.Column="2" Command="{Binding ClearSearchCommand}" Cursor="Hand" BorderThickness="0" Padding="6,4"
+                        Visibility="{Binding HasSearchQuery, Converter={StaticResource BoolToVis}}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="clr" Background="#2A2E3B" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <TextBlock Text="✕" FontSize="11" Foreground="#94A3B8" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="clr" Property="Background" Value="#3A4052" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- CONTEUDO ROLAVEL: KITS PRONTOS + CATEGORIAS + GRADE DE CARDS + RESULTADOS WINGET ONLINE -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <StackPanel>
+                <!-- CABECALHO KITS PRONTOS -->
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Kits prontos" FontSize="13.5" FontWeight="SemiBold" Foreground="#F1F5F9" />
+                        <Border Width="16" Height="16" CornerRadius="8" Background="#252936" Margin="7,0,10,0"
+                                ToolTip="Clique em um kit para marcar ou desmarcar todos os programas recomendados daquele perfil.">
+                            <TextBlock Text="i" FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{Binding SelectionSummaryText}" FontSize="12.5" Foreground="#64748B" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1" Command="{Binding ClearSelectionCommand}" Cursor="Hand" BorderThickness="0" Padding="11,5">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="desB" Background="#1F222D" BorderBrush="#2E3240" BorderThickness="1" CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                    <TextBlock Text="✕  Desmarcar tudo" FontSize="11.5" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="desB" Property="Background" Value="#2B3040" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+
+                <!-- GRADE DE KITS (3 colunas responsivas) -->
+                <ItemsControl x:Name="KitsItemsControl" ItemsSource="{Binding Kits}" Margin="0,0,0,14">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid x:Name="KitsUniformGrid" Columns="3" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Command="{Binding DataContext.ToggleKitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="{Binding ProgramNamesSummary}"
+                                    BorderThickness="0" Padding="0" Cursor="Hand" Margin="0,0,10,10" HorizontalContentAlignment="Stretch">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="kitBorder" Background="#1E2028" BorderBrush="#2C303B" BorderThickness="1"
+                                                CornerRadius="12" Padding="13,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="9"
+                                                        Background="#3B5BFF" VerticalAlignment="Top" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding IconGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                                               Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="Bold" Foreground="#F8FAFC" />
+                                                    <TextBlock Text="{Binding ProgramCountText}" FontSize="11.5" FontWeight="SemiBold" Foreground="#60A5FA" Margin="0,1,0,4" />
+                                                    <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="#94A3B8"
+                                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="34" LineHeight="16" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="kitBorder" Property="BorderBrush" Value="#4F6BFF" />
+                                                <Setter TargetName="kitBorder" Property="Background" Value="#222634" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter TargetName="kitBorder" Property="BorderBrush" Value="#3B82F6" />
+                                                <Setter TargetName="kitBorder" Property="Background" Value="#1E2A45" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- CHIPS DE CATEGORIA -->
+                <ItemsControl ItemsSource="{Binding CategoryChips}" Margin="0,0,0,14">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Cursor="Hand" BorderThickness="0" Padding="0" Margin="0,0,7,8">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="chipB" Background="#1D2029" BorderBrush="#2C303D" BorderThickness="1"
+                                                CornerRadius="14" Padding="13,5">
+                                            <TextBlock x:Name="chipT" Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="chipB" Property="BorderBrush" Value="#4F6BFF" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter TargetName="chipB" Property="Background" Value="#4F5FFF" />
+                                                <Setter TargetName="chipB" Property="BorderBrush" Value="#6366F1" />
+                                                <Setter TargetName="chipT" Property="Foreground" Value="#FFFFFF" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- GRADE PRINCIPAL DE PROGRAMAS -->
+                <ItemsControl x:Name="ProgramsItemsControl"
+                              ItemsSource="{Binding VisibleApps}"
+                              ItemTemplate="{StaticResource ProgramCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="3" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <!-- ESTADO VAZIO NO CATALOGO CURADO (Quando busca algo que nao esta nos 59 itens) -->
+                <Border Background="#1B1D26" BorderBrush="#2D3140" BorderThickness="1" CornerRadius="10"
+                        Padding="18" Margin="0,4,10,12"
+                        Visibility="{Binding HasLocalEmptyState, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Nenhum item correspondente na lista curada. Buscando automaticamente nos repositórios oficiais do Winget e da Microsoft Store abaixo…"
+                               FontSize="12.5" Foreground="#94A3B8" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                </Border>
+
+                <!-- RESULTADOS AO VIVO DO WINGET + MICROSOFT STORE -->
+                <StackPanel Visibility="{Binding ShowOnlinePanel, Converter={StaticResource BoolToVis}}" Margin="0,10,0,8">
+                    <Grid Margin="0,0,10,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="No catálogo oficial do Winget &amp; Microsoft Store"
+                                   FontSize="13.5" FontWeight="SemiBold" Foreground="#E2E8F0" />
+                        <TextBlock Grid.Column="1" Text="{Binding OnlineSearchBanner}" FontSize="11.5" Foreground="#64748B" />
+                    </Grid>
+
+                    <ProgressBar IsIndeterminate="True" Height="3" Margin="0,0,10,10" Background="#27272A" Foreground="#3B82F6" BorderThickness="0"
+                                 Visibility="{Binding IsSearchingOnline, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Subgrupo Microsoft Store -->
+                    <StackPanel Visibility="{Binding HasOnlineStoreApps, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                        <TextBlock Text="Microsoft Store" FontSize="12" FontWeight="SemiBold" Foreground="#60A5FA" Margin="0,0,0,8" />
+                        <ItemsControl x:Name="OnlineStoreItemsControl"
+                                      ItemsSource="{Binding OnlineStoreApps}"
+                                      ItemTemplate="{StaticResource ProgramCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Subgrupo Winget -->
+                    <StackPanel Visibility="{Binding HasOnlineWingetApps, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Winget" FontSize="12" FontWeight="SemiBold" Foreground="#60A5FA" Margin="0,0,0,8" />
+                        <ItemsControl x:Name="OnlineWingetItemsControl"
+                                      ItemsSource="{Binding OnlineWingetApps}"
+                                      ItemTemplate="{StaticResource ProgramCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- RODAPE FIXO (Sticky Action Bar identica ao HUB Pro) -->
+        <Border Grid.Row="3" Background="#1C1E27" BorderBrush="#2E3240" BorderThickness="1"
+                CornerRadius="12" Padding="16,11" Margin="0,10,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <!-- Mensagem padrao quando nao esta instalando -->
+                    <StackPanel>
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#F1F5F9">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{Binding SelectionSummaryText}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasSelection}" Value="False">
+                                            <Setter Property="Text" Value="Marque os programas que quer instalar" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ShowFooterProgress}" Value="True">
+                                            <Setter Property="Text" Value="{Binding QueueStatusText}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Text="⚠ 7-Zip e WinRAR selecionados juntos — normalmente basta escolher um deles."
+                                   FontSize="11.5" Foreground="#FBBF24" Margin="0,3,0,0"
+                                   Visibility="{Binding HasArchiveConflictWarning, Converter={StaticResource BoolToVis}}" />
+
+                        <ProgressBar Value="{Binding QueueProgressPercent, Mode=OneWay}" Maximum="100" Height="4"
+                                     Background="#272A36" Foreground="#3B82F6" BorderThickness="0" Margin="0,6,0,0"
+                                     Visibility="{Binding IsInstallingQueue, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Command="{Binding CancelQueueCommand}" Cursor="Hand" BorderThickness="0" Padding="14,8" Margin="0,0,8,0"
+                            Visibility="{Binding IsInstallingQueue, Converter={StaticResource BoolToVis}}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="stopB" Background="#7F1D1D" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                    <TextBlock Text="Parar fila" FontSize="12.5" FontWeight="SemiBold" Foreground="#FECACA" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="stopB" Property="Background" Value="#991B1B" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Button Command="{Binding InstallSelectedCommand}" Cursor="Hand" BorderThickness="0" Padding="18,9">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="instB" Background="#4F5FFF" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⬇  " FontSize="12" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding InstallButtonLabel}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="instB" Property="Background" Value="#6366F1" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="instB" Property="Background" Value="#242736" />
+                                        <Setter Property="Opacity" Value="0.65" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
+
