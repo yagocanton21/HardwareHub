@@ -785,8 +785,21 @@ namespace HardwareHub.ViewModels
 
                 _ = RefreshDisksHealthAsync();
                 _ = RefreshInstalledStatusAsync();
-                _ = CheckForUpdatesAsync(silent: true);
+                if (!IsRunningUnderTestRunner())
+                {
+                    _ = CheckForUpdatesAsync(silent: true);
+                }
             });
+        }
+
+        private static bool IsRunningUnderTestRunner()
+        {
+            string friendly = AppDomain.CurrentDomain.FriendlyName ?? string.Empty;
+            if (friendly.Contains("testhost", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .Any(a => string.Equals(a.GetName().Name, "xunit.core", StringComparison.OrdinalIgnoreCase));
         }
 
         private void UpdateHardwareMetrics()

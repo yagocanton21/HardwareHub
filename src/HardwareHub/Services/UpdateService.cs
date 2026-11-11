@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -28,13 +30,25 @@ namespace HardwareHub.Services
     {
         private const string GitHubRepo = "yagocanton21/HardwareHub";
         private const string GitHubApiUrl = $"https://api.github.com/repos/{GitHubRepo}/releases/latest";
-        private readonly HttpClient _httpClient;
+        private const string GitHubWebLatestUrl = $"https://github.com/{GitHubRepo}/releases/latest";
+        private const string RawChangelogJsonUrl = $"https://raw.githubusercontent.com/{GitHubRepo}/main/src/HardwareHub/Resources/Data/novidades.json";
 
-        public UpdateService()
+        private readonly HttpClient _httpClient;
+        private readonly HttpClient _noRedirectClient;
+
+        public UpdateService(HttpMessageHandler? apiAndCdnHandler = null, HttpMessageHandler? noRedirectHandler = null)
         {
-            _httpClient = new HttpClient();
+            _httpClient = apiAndCdnHandler != null
+                ? new HttpClient(apiAndCdnHandler, disposeHandler: false)
+                : new HttpClient();
             _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("HardwareHub", "1.0"));
             _httpClient.Timeout = TimeSpan.FromSeconds(20);
+
+            _noRedirectClient = noRedirectHandler != null
+                ? new HttpClient(noRedirectHandler, disposeHandler: false)
+                : new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+            _noRedirectClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("HardwareHub", "1.0"));
+            _noRedirectClient.Timeout = TimeSpan.FromSeconds(15);
         }
 
         public static Version GetCurrentVersion()
@@ -57,11 +71,16 @@ namespace HardwareHub.Services
             return ver != null ? new Version(ver.Major, ver.Minor, Math.Max(ver.Build, 0)) : new Version(1, 0, 1);
         }
 
-        public async Task<UpdateInfo> CheckForUpdatesAsync()
+        public Task<UpdateInfo> CheckForUpdatesAsync()
+        {
+            return CheckForUpdatesAsync(GetCurrentVersion());
+        }
+
+        public async Task<UpdateInfo> CheckForUpdatesAsync(Version currentVer)
         {
             var info = new UpdateInfo
             {
-                CurrentVersion = GetCurrentVersion().ToString(3)
+                CurrentVersion = currentVer.ToString(3)
             };
 
             if (!NetworkInterface.GetIsNetworkAvailable())
@@ -75,7 +94,12 @@ namespace HardwareHub.Services
                 var response = await _httpClient.GetAsync(GitHubApiUrl);
                 if (!response.IsSuccessStatusCode)
                 {
-                    info.ErrorMessage = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    if (await TryPopulateViaWebFallbackAsync(info, currentVer))
+                    {
+                        return info;
+                    }
+
+                    info.ErrorMessage = response.StatusCode == HttpStatusCode.NotFound
                         ? "Nenhuma release publicada encontrada no GitHub."
                         : $"Servidor de atualizações retornou HTTP {(int)response.StatusCode}.";
                     return info;
@@ -86,18 +110,8 @@ namespace HardwareHub.Services
                 var root = doc.RootElement;
 
                 string rawTag = root.GetProperty("tag_name").GetString() ?? "";
-                string cleanTag = Regex.Replace(rawTag, @"^[^\d]*", "").Trim(); // remove 'v' inicial se houver
-
-                if (!Version.TryParse(cleanTag, out Version? latestVer))
-                {
-                    // Tenta completar ex: "1.0" -> "1.0.0"
-                    if (Version.TryParse(cleanTag + ".0", out Version? paddedVer))
-                    {
-                        latestVer = paddedVer;
-                    }
-                }
-
-                var currentVer = GetCurrentVersion();
+                string cleanTag = Regex.Replace(rawTag, @"^[^\d]*", "").Trim();
+                Version? latestVer = ParseVersionFlexible(cleanTag);
 
                 info.LatestVersion = cleanTag;
                 info.Changelog = root.TryGetProperty("body", out var bodyEl) ? (bodyEl.GetString() ?? "") : "";
@@ -128,21 +142,170 @@ namespace HardwareHub.Services
             }
             catch (TaskCanceledException)
             {
-                info.IsAvailable = false;
-                info.ErrorMessage = "Tempo limite esgotado ao consultar atualizações.";
+                if (!await TryPopulateViaWebFallbackAsync(info, currentVer))
+                {
+                    info.IsAvailable = false;
+                    info.ErrorMessage = "Tempo limite esgotado ao consultar atualizações.";
+                }
             }
             catch (HttpRequestException ex)
             {
-                info.IsAvailable = false;
-                info.ErrorMessage = $"Falha de rede ao consultar atualizações: {ex.Message}";
+                if (!await TryPopulateViaWebFallbackAsync(info, currentVer))
+                {
+                    info.IsAvailable = false;
+                    info.ErrorMessage = $"Falha de rede ao consultar atualizações: {ex.Message}";
+                }
             }
             catch (Exception ex)
             {
-                info.IsAvailable = false;
-                info.ErrorMessage = $"Falha ao verificar atualizações: {ex.Message}";
+                if (!await TryPopulateViaWebFallbackAsync(info, currentVer))
+                {
+                    info.IsAvailable = false;
+                    info.ErrorMessage = $"Falha ao verificar atualizações: {ex.Message}";
+                }
             }
 
             return info;
+        }
+
+        /// <summary>
+        /// Plano B livre do limite de 60 req/h da REST API: lê o redirecionamento HTTP 302 de
+        /// github.com/.../releases/latest, obtém tamanho via HEAD CDN e busca notas em raw.githubusercontent.com.
+        /// </summary>
+        private async Task<bool> TryPopulateViaWebFallbackAsync(UpdateInfo info, Version currentVer)
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, GitHubWebLatestUrl);
+                using var resp = await _noRedirectClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+
+                string? targetUrl = resp.Headers.Location?.ToString();
+                if (string.IsNullOrWhiteSpace(targetUrl))
+                {
+                    targetUrl = resp.RequestMessage?.RequestUri?.ToString();
+                }
+
+                var (tagName, cleanVersion, latestVer) = ParseReleaseTagFromUrl(targetUrl);
+                if (string.IsNullOrWhiteSpace(tagName) || latestVer == null)
+                    return false;
+
+                info.LatestVersion = cleanVersion;
+                info.AssetName = "HardwareHub.exe";
+                info.DownloadUrl = $"https://github.com/{GitHubRepo}/releases/download/{tagName}/HardwareHub.exe";
+                info.Sha256SumsUrl = string.Empty;
+                info.ErrorMessage = string.Empty;
+
+                if (latestVer > currentVer)
+                {
+                    info.IsAvailable = true;
+                    await TryEnrichFallbackMetadataAsync(info, cleanVersion);
+                }
+                else
+                {
+                    info.IsAvailable = false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task TryEnrichFallbackMetadataAsync(UpdateInfo info, string cleanVersion)
+        {
+            try
+            {
+                using var headReq = new HttpRequestMessage(HttpMethod.Head, info.DownloadUrl);
+                using var headResp = await _httpClient.SendAsync(headReq, HttpCompletionOption.ResponseHeadersRead);
+                if (headResp.IsSuccessStatusCode && headResp.Content.Headers.ContentLength is long len && len > 0)
+                {
+                    info.AssetSizeBytes = len;
+                }
+            }
+            catch { }
+
+            try
+            {
+                string rawJson = await _httpClient.GetStringAsync(RawChangelogJsonUrl);
+                string markdown = FormatChangelogMarkdownFromJson(rawJson, cleanVersion);
+                if (!string.IsNullOrWhiteSpace(markdown))
+                {
+                    info.Changelog = markdown;
+                }
+            }
+            catch { }
+        }
+
+        internal static (string TagName, string CleanVersion, Version? ParsedVersion) ParseReleaseTagFromUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return (string.Empty, string.Empty, null);
+
+            var match = Regex.Match(url, @"/releases/tag/([^/?#\s]+)", RegexOptions.IgnoreCase);
+            if (!match.Success)
+                return (string.Empty, string.Empty, null);
+
+            string tag = Uri.UnescapeDataString(match.Groups[1].Value.Trim());
+            string clean = Regex.Replace(tag, @"^[^\d]*", "").Trim();
+            return (tag, clean, ParseVersionFlexible(clean));
+        }
+
+        internal static Version? ParseVersionFlexible(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return null;
+
+            string trimmed = raw.Trim();
+            if (Version.TryParse(trimmed, out var parsed) && parsed != null)
+                return parsed;
+
+            if (Version.TryParse(trimmed + ".0", out var padded) && padded != null)
+                return padded;
+
+            return null;
+        }
+
+        internal static string FormatChangelogMarkdownFromJson(string json, string targetVersion)
+        {
+            try
+            {
+                var entries = JsonSerializer.Deserialize<List<VersionReleaseNotes>>(
+                    json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (entries == null || entries.Count == 0)
+                    return string.Empty;
+
+                var match = entries.FirstOrDefault(e =>
+                    string.Equals(e.Version?.Trim().TrimStart('v', 'V'), targetVersion.Trim().TrimStart('v', 'V'), StringComparison.OrdinalIgnoreCase))
+                    ?? entries[0];
+
+                var sb = new StringBuilder();
+                if (match.Novidades.Count > 0)
+                {
+                    sb.AppendLine("### Novidades");
+                    foreach (var n in match.Novidades) sb.AppendLine($"- {n}");
+                    sb.AppendLine();
+                }
+                if (match.Melhorias.Count > 0)
+                {
+                    sb.AppendLine("### Melhorias");
+                    foreach (var m in match.Melhorias) sb.AppendLine($"- {m}");
+                    sb.AppendLine();
+                }
+                if (match.Correcoes.Count > 0)
+                {
+                    sb.AppendLine("### Correções");
+                    foreach (var c in match.Correcoes) sb.AppendLine($"- {c}");
+                }
+                return sb.ToString().Trim();
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         /// <summary>

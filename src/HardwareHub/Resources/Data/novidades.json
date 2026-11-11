@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.0.27",
+    "data": "11/11/2026",
+    "novidades": [
+      "Verificador de atualizações com plano B automático livre de limite de requisições da API do GitHub"
+    ],
+    "melhorias": [
+      "Leitura automática do redirecionamento /releases/latest e do histórico via CDN quando a REST API atingir 60 consultas/hora"
+    ],
+    "correcoes": [
+      "Corrigido cenário em que bloqueios temporários de rate limit na API do GitHub impediam a detecção de novas versões"
+    ]
+  },
+  {
     "versao": "1.0.26",
     "data": "11/11/2026",
     "novidades": [
