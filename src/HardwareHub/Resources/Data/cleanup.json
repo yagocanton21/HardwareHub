@@ -1,0 +1,496 @@
+// Regras de limpeza. Referência: CleanCollection4 do Data.xml do Dism++ 10.1.1002.1B (73 regras), adaptadas para
+// Windows 10/11 e programas comuns no Brasil. Itens só da China (QQ, 360, Baidu...) ficaram de fora.
+// Arquivos em uso são ignorados; links e junções nunca são seguidos; raiz de disco e pastas pessoais são recusadas no motor.
+//
+// Campos extras (lidos em Core\Cleaner.cs):
+//   "processos": se um desses programas estiver aberto, o item é pulado (ex.: navegador aberto) e a tela pede para fechar.
+//   "programa":  nome mostrado nesse aviso ("Feche o Chrome para limpar").
+//   "servicos":  serviços do Windows parados durante a limpeza e religados depois (só os que estavam rodando).
+//   "aviso":     frase curta mostrada na faixa amarela quando o item está marcado (o que some de vez).
+//   "especial":  lixeira | dism-componentes | restauracao-antigos | drivers-antigos | cleanmgr:<nome do item da Limpeza de Disco>
+//   "{Steam}" no caminho: pasta onde a Steam está instalada (lida do registro).
+[
+  // ---------------- Arquivos temporários ----------------
+  {
+    "id": "temp-usuario",
+    "categoria": "Arquivos temporários",
+    "titulo": "Arquivos temporários do usuário",
+    "descricao": "Arquivos que os programas criam para uso rápido e esquecem de apagar (pasta %TEMP%). Só apaga os que têm mais de 24 horas.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [ { "caminho": "%TEMP%", "idadeMinimaHoras": 24 } ]
+  },
+  {
+    "id": "temp-windows",
+    "categoria": "Arquivos temporários",
+    "titulo": "Arquivos temporários do Windows",
+    "descricao": "Arquivos provisórios do próprio Windows (pasta C:\\Windows\\Temp). Só apaga os que têm mais de 24 horas.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [ { "caminho": "%SystemRoot%\\Temp", "idadeMinimaHoras": 24 } ]
+  },
+  {
+    "id": "temp-apps-store",
+    "categoria": "Arquivos temporários",
+    "titulo": "Temporários dos aplicativos da Microsoft Store",
+    "descricao": "Arquivos provisórios que os aplicativos da Store (Fotos, WhatsApp, Calculadora...) deixam na pasta Temp de cada um. Só apaga os que têm mais de 24 horas.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [ { "caminho": "%LOCALAPPDATA%\\Packages\\*\\AC\\Temp", "idadeMinimaHoras": 24 } ]
+  },
+  {
+    "id": "temp-servicos",
+    "categoria": "Arquivos temporários",
+    "titulo": "Temporários dos serviços do Windows",
+    "descricao": "Arquivos provisórios dos programas que o Windows roda escondido (serviços). Só apaga os que têm mais de 24 horas.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [
+      { "caminho": "%SystemRoot%\\ServiceProfiles\\*\\AppData\\Local\\Temp", "idadeMinimaHoras": 24 },
+      { "caminho": "%SystemRoot%\\System32\\config\\systemprofile\\AppData\\Local\\Temp", "idadeMinimaHoras": 24 }
+    ]
+  },
+  {
+    "id": "lixeira",
+    "categoria": "Arquivos temporários",
+    "titulo": "Lixeira",
+    "descricao": "Esvazia a Lixeira de todos os discos. Depois disso, o que estava lá não pode mais ser recuperado.",
+    "nivel": "moderado",
+    "especial": "lixeira",
+    "aviso": "Lixeira: tudo o que está nela é apagado de vez e não volta."
+  },
+  {
+    "id": "dumps",
+    "categoria": "Arquivos temporários",
+    "titulo": "Despejos de memória (tela azul e travamentos)",
+    "descricao": "Arquivos .dmp criados em telas azuis, travamentos de programas e falhas do driver de vídeo. Guarde se estiver investigando um problema.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [
+      { "caminho": "%SystemRoot%\\Minidump", "padrao": "*.dmp" },
+      { "caminho": "%SystemRoot%\\MEMORY.DMP" },
+      { "caminho": "%SystemRoot%\\LiveKernelReports", "padrao": "*.dmp" },
+      { "caminho": "%LOCALAPPDATA%\\CrashDumps", "padrao": "*.dmp" }
+    ]
+  },
+
+  // ---------------- Sistema ----------------
+  {
+    "id": "relatorios-erro",
+    "categoria": "Sistema",
+    "titulo": "Relatórios de Erros do Windows",
+    "descricao": "Relatórios criados quando um programa dá erro, já enviados ou não à Microsoft. Não fazem falta no dia a dia.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [
+      { "caminho": "%ProgramData%\\Microsoft\\Windows\\WER\\ReportArchive" },
+      { "caminho": "%ProgramData%\\Microsoft\\Windows\\WER\\ReportQueue" },
+      { "caminho": "%ProgramData%\\Microsoft\\Windows\\WER\\Temp", "idadeMinimaHoras": 24 },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\WER" }
+    ]
+  },
+  {
+    "id": "cache-windows-update",
+    "categoria": "Sistema",
+    "titulo": "Atualizações do Windows já baixadas",
+    "descricao": "Pacotes de atualização que o Windows Update já baixou (SoftwareDistribution\\Download). O HUB pausa o Windows Update durante a limpeza e religa depois. Se uma atualização estiver sendo instalada ou faltar reiniciar, este item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "servicos": [ "wuauserv" ],
+    "alvos": [ { "caminho": "%SystemRoot%\\SoftwareDistribution\\Download", "idadeMinimaHoras": 24 } ]
+  },
+  {
+    "id": "otimizacao-entrega",
+    "categoria": "Sistema",
+    "titulo": "Cache da Otimização de Entrega",
+    "descricao": "Cópias de atualizações que o Windows guarda para enviar a outros PCs da rede. Pode apagar.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [
+      { "caminho": "%SystemRoot%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache" },
+      { "caminho": "%SystemRoot%\\SoftwareDistribution\\DeliveryOptimization" }
+    ]
+  },
+  {
+    "id": "logs-windows",
+    "categoria": "Sistema",
+    "titulo": "Registros (logs) antigos do Windows",
+    "descricao": "Arquivos de registro de atividade do Windows, do CBS e do DISM (.log, .etl e .cab do CBS) com mais de 7 dias. Só servem para um técnico investigar problemas antigos.",
+    "nivel": "seguro",
+    "alvos": [
+      { "caminho": "%SystemRoot%\\Logs", "padrao": "*.log", "idadeMinimaHoras": 168 },
+      { "caminho": "%SystemRoot%\\Logs", "padrao": "*.etl", "idadeMinimaHoras": 168 },
+      { "caminho": "%SystemRoot%\\Logs\\CBS", "padrao": "*.cab", "idadeMinimaHoras": 168 },
+      { "caminho": "%SystemRoot%\\debug", "padrao": "*.log", "idadeMinimaHoras": 168 }
+    ]
+  },
+  {
+    "id": "retail-demo",
+    "categoria": "Sistema",
+    "titulo": "Conteúdo do modo demonstração de loja",
+    "descricao": "Vídeos e fotos que o Windows usa quando o PC fica exposto numa loja. Só existe em alguns PCs e não serve para mais nada.",
+    "nivel": "seguro",
+    "alvos": [ { "caminho": "%ProgramData%\\Microsoft\\Windows\\RetailDemo" } ]
+  },
+  {
+    "id": "componentes-winsxs",
+    "categoria": "Sistema",
+    "titulo": "Restos de atualizações antigas do Windows (WinSxS)",
+    "descricao": "Apaga as versões antigas de arquivos do Windows que as atualizações substituíram, usando a ferramenta do próprio Windows (DISM, sem /ResetBase). Demora vários minutos, e depois as atualizações já instaladas não poderão mais ser desinstaladas.",
+    "nivel": "avancado",
+    "especial": "dism-componentes",
+    "aviso": "Restos de atualizações (WinSxS): as atualizações já instaladas não poderão mais ser desinstaladas."
+  },
+  {
+    "id": "instalacao-temporaria-windows",
+    "categoria": "Sistema",
+    "titulo": "Arquivos temporários de instalação do Windows ($WINDOWS.~BT)",
+    "descricao": "Pastas que o Windows cria ao instalar uma versão nova (atualização grande). O HUB apaga pela Limpeza de Disco do próprio Windows. Se uma atualização grande estiver pela metade, ela recomeça do zero.",
+    "nivel": "avancado",
+    "especial": "cleanmgr:Temporary Setup Files",
+    "alvos": [
+      { "caminho": "%SystemDrive%\\$WINDOWS.~BT" },
+      { "caminho": "%SystemDrive%\\$Windows.~WS" },
+      { "caminho": "%SystemDrive%\\$WINDOWS.~LS" }
+    ],
+    "aviso": "Instalação temporária do Windows: depois de limpar, pode não dar mais para voltar à versão anterior do Windows."
+  },
+  {
+    "id": "windows-anterior",
+    "categoria": "Sistema",
+    "titulo": "Windows anterior (Windows.old)",
+    "descricao": "Cópia do Windows que existia antes da última atualização grande ou reinstalação. O HUB apaga pela Limpeza de Disco do próprio Windows, e não apaga se encontrar arquivos pessoais dentro (Windows.old\\Users).",
+    "nivel": "avancado",
+    "especial": "cleanmgr:Previous Installations",
+    "alvos": [ { "caminho": "%SystemDrive%\\Windows.old" } ],
+    "aviso": "Windows anterior (Windows.old): não dá mais para voltar à versão antiga do Windows."
+  },
+  {
+    "id": "pontos-restauracao-antigos",
+    "categoria": "Sistema",
+    "titulo": "Pontos de restauração antigos",
+    "descricao": "Apaga os pontos de restauração do sistema mais velhos. Ficam o mais recente e todos os criados nos últimos 7 dias.",
+    "nivel": "avancado",
+    "especial": "restauracao-antigos",
+    "aviso": "Pontos de restauração antigos: só dá para voltar o PC até o ponto mais recente (e os dos últimos 7 dias)."
+  },
+
+  // ---------------- Cache ----------------
+  {
+    "id": "miniaturas",
+    "categoria": "Cache",
+    "titulo": "Cache de miniaturas",
+    "descricao": "Imagens pequenas de fotos e vídeos que aparecem nas pastas. O Windows recria quando você abre as pastas de novo. As que estão em uso pelo Explorer são puladas.",
+    "nivel": "seguro",
+    "alvos": [ { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", "padrao": "thumbcache_*.db", "recursivo": false } ]
+  },
+  {
+    "id": "icones",
+    "categoria": "Cache",
+    "titulo": "Cache de ícones",
+    "descricao": "Cópia dos ícones de programas e arquivos. Limpar resolve ícone errado ou em branco. Os que estão em uso são pulados; o restante o Windows recria depois de reiniciar.",
+    "nivel": "moderado",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", "padrao": "iconcache_*.db", "recursivo": false },
+      { "caminho": "%LOCALAPPDATA%\\IconCache.db" }
+    ]
+  },
+  {
+    "id": "fontes",
+    "categoria": "Cache",
+    "titulo": "Cache de fontes",
+    "descricao": "Lista de letras (fontes) que o Windows guarda para abrir programas mais rápido. Limpar resolve letras estranhas ou faltando. O HUB para o serviço de cache de fontes e religa depois.",
+    "nivel": "moderado",
+    "servicos": [ "FontCache" ],
+    "alvos": [ { "caminho": "%SystemRoot%\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache", "padrao": "~FontCache-*", "recursivo": false } ]
+  },
+  {
+    "id": "internet-windows",
+    "categoria": "Cache",
+    "titulo": "Cache de internet do Windows",
+    "descricao": "Partes de sites guardadas pelo Internet Explorer e por programas antigos que usam a internet do Windows. Não apaga cookies nem logins.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache\\IE" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache\\Low\\IE" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache\\Content.IE5" }
+    ]
+  },
+  {
+    "id": "area-remota",
+    "categoria": "Cache",
+    "titulo": "Cache da Conexão de Área de Trabalho Remota",
+    "descricao": "Pedaços de imagem guardados quando você acessa outro PC pela Área de Trabalho Remota. Ela recria na próxima conexão.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "alvos": [ { "caminho": "%LOCALAPPDATA%\\Microsoft\\Terminal Server Client\\Cache" } ]
+  },
+  {
+    "id": "prefetch",
+    "categoria": "Cache",
+    "titulo": "Arquivos Prefetch",
+    "descricao": "Arquivos que o Windows usa para abrir os programas mais rápido. Ele recria sozinho, mas logo depois de limpar os programas abrem mais devagar. Não precisa limpar.",
+    "nivel": "avancado",
+    "alvos": [ { "caminho": "%SystemRoot%\\Prefetch", "padrao": "*.pf" } ],
+    "aviso": "Prefetch: os programas abrem mais devagar nos primeiros dias."
+  },
+  {
+    "id": "cache-shaders",
+    "categoria": "Cache",
+    "titulo": "Cache de gráficos dos jogos (DirectX, NVIDIA, AMD e Intel)",
+    "descricao": "Dados que os jogos guardam para desenhar a imagem mais rápido (shaders). Limpar pode resolver falhas na imagem; na primeira vez depois, o jogo pode engasgar um pouco. Os que estão em uso são pulados.",
+    "nivel": "moderado",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\D3DSCache" },
+      { "caminho": "%LOCALAPPDATA%\\NVIDIA\\DXCache" },
+      { "caminho": "%LOCALAPPDATA%\\NVIDIA\\GLCache" },
+      { "caminho": "%USERPROFILE%\\AppData\\LocalLow\\NVIDIA\\DXCache" },
+      { "caminho": "%USERPROFILE%\\AppData\\LocalLow\\NVIDIA\\PerDriverVersion\\DXCache" },
+      { "caminho": "%ProgramData%\\NVIDIA Corporation\\NV_Cache" },
+      { "caminho": "%LOCALAPPDATA%\\AMD\\DxCache" },
+      { "caminho": "%LOCALAPPDATA%\\AMD\\DxcCache" },
+      { "caminho": "%LOCALAPPDATA%\\AMD\\GLCache" },
+      { "caminho": "%LOCALAPPDATA%\\AMD\\VkCache" },
+      { "caminho": "%USERPROFILE%\\AppData\\LocalLow\\AMD\\DxCache" },
+      { "caminho": "%LOCALAPPDATA%\\Intel\\ShaderCache" },
+      { "caminho": "%USERPROFILE%\\AppData\\LocalLow\\Intel\\ShaderCache" }
+    ]
+  },
+
+  // ---------------- Navegadores (só cache: nunca perfis, senhas, cookies, histórico ou favoritos) ----------------
+  {
+    "id": "cache-edge",
+    "categoria": "Navegadores",
+    "titulo": "Cache do Microsoft Edge",
+    "descricao": "Cópias de imagens e partes de sites guardadas para abrir mais rápido, e o cache da placa de vídeo do navegador. Não apaga senhas, histórico, cookies nem logins. Com o Edge aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "msedge" ],
+    "programa": "o Edge",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Cache\\Cache_Data" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\GPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\DawnGraphiteCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\*\\DawnWebGPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\ShaderCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\GrShaderCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\GraphiteDawnCache" },
+      { "caminho": "%LOCALAPPDATA%\\Microsoft\\Edge\\User Data\\GPUPersistentCache" }
+    ]
+  },
+  {
+    "id": "cache-chrome",
+    "categoria": "Navegadores",
+    "titulo": "Cache do Google Chrome",
+    "descricao": "Cópias de imagens e partes de sites guardadas para abrir mais rápido, e o cache da placa de vídeo do navegador. Não apaga senhas, histórico, cookies nem logins. Com o Chrome aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "chrome" ],
+    "programa": "o Chrome",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Cache\\Cache_Data" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\GPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\DawnGraphiteCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\*\\DawnWebGPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\ShaderCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\GrShaderCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\GraphiteDawnCache" },
+      { "caminho": "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\GPUPersistentCache" }
+    ]
+  },
+  {
+    "id": "cache-firefox",
+    "categoria": "Navegadores",
+    "titulo": "Cache do Firefox",
+    "descricao": "Cópias de páginas guardadas para abrir mais rápido. Não apaga senhas, histórico, cookies nem logins. Com o Firefox aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "firefox" ],
+    "programa": "o Firefox",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\cache2" },
+      { "caminho": "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\startupCache" },
+      { "caminho": "%LOCALAPPDATA%\\Mozilla\\Firefox\\Profiles\\*\\thumbnails" }
+    ]
+  },
+  {
+    "id": "cache-brave",
+    "categoria": "Navegadores",
+    "titulo": "Cache do Brave",
+    "descricao": "Cópias de imagens e partes de sites guardadas para abrir mais rápido. Não apaga senhas, histórico, cookies nem logins. Com o Brave aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "brave" ],
+    "programa": "o Brave",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Cache\\Cache_Data" },
+      { "caminho": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\*\\GPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\ShaderCache" },
+      { "caminho": "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data\\GrShaderCache" }
+    ]
+  },
+  {
+    "id": "cache-opera",
+    "categoria": "Navegadores",
+    "titulo": "Cache do Opera e do Opera GX",
+    "descricao": "Cópias de imagens e partes de sites guardadas para abrir mais rápido. Não apaga senhas, histórico, cookies nem logins. Com o Opera aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "opera" ],
+    "programa": "o Opera",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Opera Software\\*\\Cache\\Cache_Data" },
+      { "caminho": "%APPDATA%\\Opera Software\\*\\Code Cache" },
+      { "caminho": "%APPDATA%\\Opera Software\\*\\GPUCache" },
+      { "caminho": "%APPDATA%\\Opera Software\\*\\ShaderCache" }
+    ]
+  },
+
+  // ---------------- Programas ----------------
+  {
+    "id": "cache-discord",
+    "categoria": "Programas",
+    "titulo": "Cache do Discord",
+    "descricao": "Imagens, figurinhas e vídeos que o Discord guardou das conversas. Não apaga mensagens nem o login. Com o Discord aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "Discord", "DiscordPTB", "DiscordCanary" ],
+    "programa": "o Discord",
+    "alvos": [
+      { "caminho": "%APPDATA%\\discord*\\Cache\\Cache_Data" },
+      { "caminho": "%APPDATA%\\discord*\\Code Cache" },
+      { "caminho": "%APPDATA%\\discord*\\GPUCache" }
+    ]
+  },
+  {
+    "id": "cache-spotify",
+    "categoria": "Programas",
+    "titulo": "Cache do Spotify",
+    "descricao": "Músicas que o Spotify guardou para tocar de novo sem baixar. Não apaga playlists nem a conta. Ele baixa de novo o que você ouvir. Com o Spotify aberto, o item é pulado.",
+    "nivel": "moderado",
+    "processos": [ "Spotify" ],
+    "programa": "o Spotify",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Spotify\\Data" },
+      { "caminho": "%LOCALAPPDATA%\\Spotify\\Browser\\Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Packages\\SpotifyAB.SpotifyMusic_*\\LocalCache\\Spotify\\Data" }
+    ]
+  },
+  {
+    "id": "cache-steam",
+    "categoria": "Programas",
+    "titulo": "Cache da loja da Steam",
+    "descricao": "Imagens e páginas da loja e da comunidade guardadas pela Steam. Não apaga jogos, saves nem o login. Com a Steam aberta, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "steam", "steamwebhelper" ],
+    "programa": "a Steam",
+    "alvos": [
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\GPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\Default\\Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\Default\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Steam\\htmlcache\\Default\\GPUCache" },
+      { "caminho": "{Steam}\\appcache\\httpcache" }
+    ]
+  },
+  {
+    "id": "shaders-steam",
+    "categoria": "Programas",
+    "titulo": "Cache de gráficos dos jogos da Steam",
+    "descricao": "Shaders que a Steam guarda para cada jogo (steamapps\\shadercache). A Steam baixa ou recria; nas primeiras partidas o jogo pode engasgar um pouco. Com a Steam aberta, o item é pulado.",
+    "nivel": "moderado",
+    "processos": [ "steam" ],
+    "programa": "a Steam",
+    "alvos": [ { "caminho": "{Steam}\\steamapps\\shadercache" } ]
+  },
+  {
+    "id": "cache-teams",
+    "categoria": "Programas",
+    "titulo": "Cache do Microsoft Teams",
+    "descricao": "Imagens e partes da tela do Teams guardadas para abrir mais rápido (Teams novo e clássico). Não apaga conversas nem o login. Com o Teams aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "ms-teams", "Teams" ],
+    "programa": "o Teams",
+    "alvos": [
+      { "caminho": "%APPDATA%\\Microsoft\\Teams\\Cache" },
+      { "caminho": "%APPDATA%\\Microsoft\\Teams\\Code Cache" },
+      { "caminho": "%APPDATA%\\Microsoft\\Teams\\GPUCache" },
+      { "caminho": "%LOCALAPPDATA%\\Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\Cache\\Cache_Data" },
+      { "caminho": "%LOCALAPPDATA%\\Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\Code Cache" },
+      { "caminho": "%LOCALAPPDATA%\\Packages\\MSTeams_8wekyb3d8bbwe\\LocalCache\\Microsoft\\MSTeams\\EBWebView\\*\\GPUCache" }
+    ]
+  },
+  {
+    "id": "cache-vscode",
+    "categoria": "Programas",
+    "titulo": "Cache do Visual Studio Code",
+    "descricao": "Arquivos que o VS Code guarda para abrir mais rápido e cópias de extensões já instaladas. Não apaga seus projetos, configurações nem extensões. Com o VS Code aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "Code" ],
+    "programa": "o VS Code",
+    "alvos": [
+      { "caminho": "%APPDATA%\\Code\\Cache" },
+      { "caminho": "%APPDATA%\\Code\\Code Cache" },
+      { "caminho": "%APPDATA%\\Code\\GPUCache" },
+      { "caminho": "%APPDATA%\\Code\\CachedData" },
+      { "caminho": "%APPDATA%\\Code\\CachedExtensionVSIXs" }
+    ]
+  },
+  {
+    "id": "cache-epic",
+    "categoria": "Programas",
+    "titulo": "Cache da Epic Games",
+    "descricao": "Imagens e páginas da loja guardadas pelo Epic Games Launcher. Não apaga jogos nem o login. Com o launcher aberto, o item é pulado.",
+    "nivel": "seguro",
+    "recomendado": true,
+    "processos": [ "EpicGamesLauncher" ],
+    "programa": "o Epic Games Launcher",
+    "alvos": [ { "caminho": "%LOCALAPPDATA%\\EpicGamesLauncher\\Saved\\webcache*" } ]
+  },
+
+  // ---------------- Drivers ----------------
+  {
+    "id": "instaladores-nvidia",
+    "categoria": "Instaladores de drivers",
+    "titulo": "Sobras de instalação de driver NVIDIA",
+    "descricao": "Arquivos que o instalador do driver de vídeo NVIDIA (e o GeForce Experience / NVIDIA App) baixou e não usa mais. O driver instalado continua funcionando.",
+    "nivel": "moderado",
+    "alvos": [
+      { "caminho": "%SystemDrive%\\NVIDIA" },
+      { "caminho": "%ProgramData%\\NVIDIA Corporation\\Downloader" }
+    ]
+  },
+  {
+    "id": "instaladores-amd",
+    "categoria": "Instaladores de drivers",
+    "titulo": "Sobras de instalação de driver AMD",
+    "descricao": "Pasta C:\\AMD, onde o instalador do driver de vídeo AMD (Adrenalin) deixa os arquivos de instalação. O driver instalado continua funcionando.",
+    "nivel": "moderado",
+    "alvos": [ { "caminho": "%SystemDrive%\\AMD" } ]
+  },
+  {
+    "id": "instaladores-intel",
+    "categoria": "Instaladores de drivers",
+    "titulo": "Sobras de instalação de driver Intel",
+    "descricao": "Pasta C:\\Intel, onde os instaladores de driver da Intel (vídeo, Wi-Fi, chipset) deixam arquivos e registros. Só apaga o que tem mais de 24 horas. O driver instalado continua funcionando.",
+    "nivel": "moderado",
+    "alvos": [ { "caminho": "%SystemDrive%\\Intel", "idadeMinimaHoras": 24 } ]
+  },
+  {
+    "id": "drivers-antigos",
+    "categoria": "Instaladores de drivers",
+    "titulo": "Versões antigas de drivers guardadas pelo Windows",
+    "descricao": "Cópias de drivers que já têm uma versão mais nova instalada (DriverStore). O HUB só remove pela ferramenta do Windows (pnputil) e só as versões que nenhum aparelho usa, nem os desconectados.",
+    "nivel": "avancado",
+    "especial": "drivers-antigos",
+    "aviso": "Drivers antigos: não dá mais para voltar ao driver anterior pelo Gerenciador de Dispositivos."
+  }
+]

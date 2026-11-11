@@ -1,0 +1,258 @@
+<UserControl x:Class="HardwareHub.Views.NetworkOptimizerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Foreground="#FAFAFA">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="FlatButtonStyle" TargetType="Button">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER FIXO -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                <TextBlock Text="Otimizador de Rede &amp; DNS" FontSize="24" FontWeight="Bold" Foreground="#FAFAFA" TextWrapping="Wrap" />
+                <TextBlock Text="Benchmark UDP real em servidores DNS públicos, ajustes TCP/Wi-Fi seguros e backup completo para reversão"
+                           FontSize="12.5" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right">
+                <Button Content="⏹ Cancelar"
+                        Command="{Binding CancelNetworkTaskCommand}"
+                        Visibility="{Binding IsBusyNetwork, Converter={StaticResource BoolToVis}}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#991B1B" Foreground="#FFFFFF"
+                        Padding="12,9" Margin="0,0,8,4" FontWeight="SemiBold" />
+                <Button Content="🧹 Flush DNS"
+                        Command="{Binding FlushDnsCommand}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#27272A" Foreground="#E4E4E7" BorderBrush="#3F3F46" BorderThickness="1"
+                        Padding="12,9" Margin="0,0,8,4" FontWeight="SemiBold" />
+                <Button Content="↩ Reverter Rede"
+                        Command="{Binding RevertNetworkCommand}"
+                        Visibility="{Binding HasSavedRevert, Converter={StaticResource BoolToVis}}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#78350F" Foreground="#FDE68A"
+                        Padding="12,9" Margin="0,0,8,4" FontWeight="SemiBold" />
+                <Button Content="🔍 Analisar Rede &amp; DNS"
+                        Command="{Binding AnalyzeNetworkCommand}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#4F46E5" Foreground="#FFFFFF"
+                        Padding="14,9" Margin="0,0,0,4" FontWeight="SemiBold" />
+            </WrapPanel>
+        </Grid>
+
+        <!-- STATUS BANNER -->
+        <Border Grid.Row="1" Background="#1C1C22" BorderBrush="#312E81" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,0,0,12">
+            <DockPanel LastChildFill="True">
+                <ProgressBar DockPanel.Dock="Right" Width="130" Height="6" IsIndeterminate="True"
+                             Visibility="{Binding IsBusyNetwork, Converter={StaticResource BoolToVis}}"
+                             VerticalAlignment="Center" Margin="12,0,0,0" />
+                <TextBlock Text="{Binding NetworkStatusBanner}" Foreground="#C7D2FE" FontSize="12"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <!-- ADAPTADOR ATIVO + AVISOS -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <Border Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <TextBlock Text="{Binding AdapterSummary}" Foreground="#FAFAFA" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding RecommendedDnsLabel}" Foreground="#34D399" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding SavedRevertSummary}" Foreground="#FBBF24" FontSize="11.5"
+                                   Visibility="{Binding HasSavedRevert, Converter={StaticResource BoolToVis}}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Background="#2A1C0E" BorderBrush="#92400E" BorderThickness="1" CornerRadius="8"
+                    Padding="10,8" Margin="0,8,0,0"
+                    Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
+                <ItemsControl ItemsSource="{Binding Warnings}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StringFormat='⚠ {0}'}" Foreground="#FDE68A" FontSize="12" TextWrapping="Wrap" Margin="0,1" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </StackPanel>
+
+        <!-- DUAS COLUNAS: BENCHMARK DNS + AJUSTES DO WINDOWS -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- COLUNA ESQUERDA: BENCHMARK DE DNS -->
+            <Border Grid.Column="0" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Benchmark DNS (Latência UDP Real)" FontSize="14.5" FontWeight="Bold" Foreground="#FAFAFA" />
+                        <TextBlock Text="Mediana em 3 consultas UDP para domínios reais (quanto menor, melhor)" FontSize="11.5" Foreground="#A1A1AA" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                        <ItemsControl ItemsSource="{Binding DnsBenchmarks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#202025" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                <WrapPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Candidate.Name}" Foreground="#FAFAFA" FontSize="13" FontWeight="SemiBold" Margin="0,0,8,0" />
+                                                    <Border Background="{Binding BadgeColor}" CornerRadius="5" Padding="6,2">
+                                                        <TextBlock Text="{Binding BadgeText}" Foreground="#FFFFFF" FontSize="10.5" FontWeight="SemiBold" />
+                                                    </Border>
+                                                </WrapPanel>
+                                                <TextBlock Text="{Binding PrimaryIpv4, StringFormat='Servidor IPv4: {0}'}" Foreground="#A1A1AA" FontSize="11.5" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding FormattedMedian}" Foreground="#34D399" FontSize="13.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                                <TextBlock Text="{Binding FormattedAverage}" Foreground="#71717A" FontSize="11" HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Content="Aplicar"
+                                                    Command="{Binding DataContext.ApplyPresetDnsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource FlatButtonStyle}"
+                                                    Background="#27272A" Foreground="#E4E4E7" Padding="10,6" FontSize="11.5" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" Background="#202025" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,10,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0" ItemsSource="{Binding DnsPresets}" SelectedItem="{Binding SelectedManualDns}"
+                                      DisplayMemberPath="Name" Margin="0,0,8,0" VerticalContentAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Aplicar DNS"
+                                        Command="{Binding ApplyPresetDnsCommand}"
+                                        Style="{StaticResource FlatButtonStyle}"
+                                        Background="#4F46E5" Foreground="#FFFFFF" Padding="11,7" Margin="0,0,6,0" FontSize="12" FontWeight="SemiBold" />
+                                <Button Content="Usar DHCP"
+                                        Command="{Binding ResetDnsDhcpCommand}"
+                                        Style="{StaticResource FlatButtonStyle}"
+                                        Background="#27272A" Foreground="#E4E4E7" Padding="11,7" FontSize="12" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- COLUNA DIREITA: AJUSTES DE REDE -->
+            <Border Grid.Column="2" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Ajustes Seguros de Adaptador &amp; TCP" FontSize="14.5" FontWeight="Bold" Foreground="#FAFAFA" />
+                        <TextBlock Text="Preserva backup exato do estado anterior em JSON local para reversão com 1 clique" FontSize="11.5" Foreground="#A1A1AA" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                        <ItemsControl ItemsSource="{Binding Adjustments}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#202025" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10,9" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" Margin="0,2,10,0" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Title}" Foreground="#FAFAFA" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Explanation}" Foreground="#A1A1AA" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,0,5" />
+                                                <WrapPanel>
+                                                    <TextBlock Text="{Binding CurrentValue, StringFormat='Atual: {0}'}" Foreground="#FBBF24" FontSize="11" Margin="0,0,12,0" />
+                                                    <TextBlock Text="{Binding TargetValue, StringFormat='Alvo: {0}'}" Foreground="#34D399" FontSize="11" />
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Button Grid.Row="2" Content="⚡ Aplicar Otimizações Selecionadas"
+                            Command="{Binding ApplyNetworkPlanCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#059669" Foreground="#FFFFFF" Padding="14,10" Margin="0,10,0,0"
+                            FontSize="13" FontWeight="SemiBold" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
+

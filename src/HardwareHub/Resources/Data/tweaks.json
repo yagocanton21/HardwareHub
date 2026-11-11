@@ -1,0 +1,951 @@
+// Catálogo de ajustes do Windows para o Hardware HUB (segurança preservada).
+// Referência: SystemOptimization do Data.xml do Dism++ 10.1.1002.1B (valores de registro conferidos),
+// mais alguns ajustes modernos de Windows 10/11 marcados com "extra" no comentário.
+// Ajustes que reduzem a segurança (desligar Defender, Firewall, UAC, SmartScreen) foram deixados de fora de propósito.
+[
+  // ---------------- Barra de tarefas e Iniciar ----------------
+  {
+    "id": "ocultar-visao-tarefas",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Ocultar o botão Visão de Tarefas",
+    "descricao": "Tira da barra de tarefas o botão que mostra as janelas abertas e as áreas de trabalho extras. O atalho Win + Tab continua funcionando.",
+    "risco": "seguro",
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowTaskViewButton", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowTaskViewButton", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "relogio-segundos",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Mostrar segundos no relógio",
+    "descricao": "Exibe os segundos no relógio da barra de tarefas.",
+    "risco": "seguro",
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowSecondsInSystemClock", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowSecondsInSystemClock" } ]
+  },
+  {
+    // extra
+    "id": "win11-barra-esquerda",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Alinhar a barra de tarefas à esquerda",
+    "descricao": "Coloca o botão Iniciar no canto, como no Windows 10.",
+    "risco": "seguro",
+    "minBuild": 22000,
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarAl", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarAl", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "desativar-sugestoes-iniciar",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Desativar sugestões e anúncios no Iniciar",
+    "descricao": "Para de mostrar apps sugeridos e propaganda no menu Iniciar.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SystemPaneSuggestionsEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338388Enabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338389Enabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SystemPaneSuggestionsEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338388Enabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338389Enabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "desativar-apps-automaticos",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Impedir instalação automática de apps sugeridos",
+    "descricao": "Evita que o Windows instale sozinho jogos e apps patrocinados (Candy Crush etc.). No Pro também liga a regra do Windows que bloqueia esses apps para todas as contas.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SilentInstalledAppsEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "PreInstalledAppsEnabled", "kind": "dword", "dados": "0" },
+      // vale no Pro/Enterprise; no Home o Windows ignora a regra (os valores acima continuam valendo)
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "valor": "DisableWindowsConsumerFeatures", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SilentInstalledAppsEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "PreInstalledAppsEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "valor": "DisableWindowsConsumerFeatures" }
+    ]
+  },
+  {
+    "id": "desativar-dicas-windows",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Desativar dicas e sugestões ao usar o Windows",
+    "descricao": "Remove notificações de \"dicas\" e truques do Windows.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SoftLandingEnabled", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SoftLandingEnabled", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    // extra
+    "id": "desativar-bing-iniciar",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Tirar resultados da web (Bing) da pesquisa do Iniciar",
+    "descricao": "A pesquisa do Iniciar passa a buscar só no computador, mais rápida.",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer", "valor": "DisableSearchBoxSuggestions", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer", "valor": "DisableSearchBoxSuggestions" } ]
+  },
+
+  // ---------------- Explorador de Arquivos ----------------
+  {
+    "id": "mostrar-extensoes",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Mostrar extensões de arquivo",
+    "descricao": "Mostra .exe, .pdf, .jpg etc. Ajuda a identificar arquivos falsos (ex.: foto.jpg.exe).",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "HideFileExt", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "HideFileExt", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "mostrar-ocultos",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Mostrar arquivos e pastas ocultos",
+    "descricao": "Exibe itens ocultos (os arquivos protegidos do sistema continuam escondidos).",
+    "risco": "seguro",
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Hidden", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Hidden", "kind": "dword", "dados": "2" } ]
+  },
+  {
+    "id": "abrir-este-pc",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Abrir o Explorador em \"Este Computador\"",
+    "descricao": "Abre direto nos discos em vez do Acesso Rápido/Início.",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "LaunchTo", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "LaunchTo", "kind": "dword", "dados": "2" } ]
+  },
+  {
+    "id": "sem-recentes",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Não mostrar arquivos recentes e pastas frequentes",
+    "descricao": "O Explorador para de mostrar os arquivos e pastas que você abriu por último. Mais privacidade se outras pessoas usam o PC.",
+    "risco": "seguro",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "ShowRecent", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "ShowFrequent", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "ShowRecent" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "ShowFrequent" }
+    ]
+  },
+  {
+    "id": "desativar-autoplay",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Desativar Reprodução Automática (AutoPlay)",
+    "descricao": "Pendrives e CDs não abrem nada sozinhos. Protege contra vírus de pendrive.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers", "valor": "DisableAutoplay", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers", "valor": "DisableAutoplay", "kind": "dword", "dados": "0" } ]
+  },
+  {
+    "id": "pastas-processo-separado",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Abrir pastas em processo separado",
+    "descricao": "Se uma janela de pasta travar, a barra de tarefas não trava junto. Usa um pouco mais de memória (RAM).",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "SeparateProcess", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "SeparateProcess", "kind": "dword", "dados": "0" } ]
+  },
+  {
+    "id": "sem-texto-atalho",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Não adicionar \" - Atalho\" ao criar atalhos",
+    "descricao": "Atalhos novos ficam só com o nome do programa.",
+    "risco": "seguro",
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "Link", "kind": "binary", "dados": "00000000" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer", "valor": "Link" } ]
+  },
+  {
+    "id": "win11-menu-classico",
+    "categoria": "Explorador de Arquivos",
+    "titulo": "Menu de contexto clássico (botão direito do Windows 10)",
+    "descricao": "Volta o menu completo do botão direito, sem precisar clicar em \"Mostrar mais opções\".",
+    "risco": "seguro",
+    "recomendado": true,
+    "minBuild": 22000,
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\\InprocServer32", "valor": "", "kind": "sz", "dados": "" } ],
+    "desativar": [ { "tipo": "regDelKey", "chave": "HKCU\\Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" } ]
+  },
+
+  // ---------------- Privacidade ----------------
+  {
+    // extra
+    "id": "telemetria-minima",
+    "categoria": "Privacidade",
+    "titulo": "Enviar o mínimo de dados de uso à Microsoft (telemetria)",
+    "descricao": "Reduz ao mínimo os dados de diagnóstico que o Windows envia à Microsoft. O mínimo possível depende da sua edição do Windows (Home, Pro...). Depois disso, as Configurações podem mostrar \"Algumas configurações são gerenciadas pela sua organização\": é normal.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "valor": "AllowTelemetry", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "valor": "AllowTelemetry" } ]
+  },
+  {
+    "id": "desativar-ceip",
+    "categoria": "Privacidade",
+    "titulo": "Sair do Programa de Aperfeiçoamento da Experiência do Usuário",
+    "descricao": "Para de enviar à Microsoft estatísticas de como você usa o Windows.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\SQMClient\\Windows", "valor": "CEIPEnable", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\SQMClient\\Windows", "valor": "CEIPEnable" } ]
+  },
+  {
+    // extra
+    "id": "desativar-id-anuncio",
+    "categoria": "Privacidade",
+    "titulo": "Desativar ID de publicidade",
+    "descricao": "Apps deixam de usar um identificador para mostrar anúncios personalizados.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "valor": "Enabled", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "valor": "Enabled", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    // extra
+    "id": "desativar-historico-atividades",
+    "categoria": "Privacidade",
+    "titulo": "Desativar histórico de atividades",
+    "descricao": "O Windows para de registrar os apps e arquivos que você abre.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "valor": "PublishUserActivities", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "valor": "PublishUserActivities" } ]
+  },
+  {
+    "id": "desativar-cortana",
+    "categoria": "Privacidade",
+    "titulo": "Desativar a Cortana",
+    "descricao": "Desliga a assistente de voz da Microsoft (Cortana) no Windows.",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search", "valor": "AllowCortana", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search", "valor": "AllowCortana" } ]
+  },
+  {
+    "id": "sem-loja-abrir-com",
+    "categoria": "Privacidade",
+    "titulo": "Não procurar na Microsoft Store ao abrir arquivo desconhecido",
+    "descricao": "Remove a opção \"Procurar um aplicativo na Store\" do \"Abrir com\".",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer", "valor": "NoUseStoreOpenWith", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer", "valor": "NoUseStoreOpenWith" } ]
+  },
+
+  // ---------------- Desempenho e jogos ----------------
+  {
+    "id": "desativar-gamedvr",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Desativar gravação em segundo plano (Game DVR)",
+    "descricao": "Desliga a gravação de jogos do Windows. A Xbox Game Bar (Win + G) continua abrindo, mas para de gravar vídeos dos jogos (Win + Alt + R). Se você grava jogos pela Game Bar, não use.",
+    "risco": "seguro",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR", "valor": "AppCaptureEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\System\\GameConfigStore", "valor": "GameDVR_Enabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR", "valor": "AppCaptureEnabled" },
+      { "tipo": "regDel", "chave": "HKCU\\System\\GameConfigStore", "valor": "GameDVR_Enabled" }
+    ]
+  },
+  {
+    // extra
+    "id": "menus-rapidos",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Menus abrem mais rápido",
+    "descricao": "Os submenus aparecem mais rápido ao passar o mouse: a espera cai de 0,4 para 0,1 segundo.",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "logoff",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop", "valor": "MenuShowDelay", "kind": "sz", "dados": "100" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop", "valor": "MenuShowDelay", "kind": "sz", "dados": "400" } ]
+  },
+  {
+    // Opções de desempenho > Efeitos visuais > Personalizar, como o Hércules usa: desliga as 10 animações que deixam o
+    // Windows lento e mantém as 7 que mudam a aparência (miniaturas, ClearType, sombras das janelas e dos ícones,
+    // conteúdo da janela ao arrastar, rolagem suave e retângulo de seleção).
+    // UserPreferencesMask 98 12 07 80 10 = o "melhor aparência" (9E 3E 07 80 12) sem: caixas de combinação (b0 04),
+    // menus deslizando (b0 02), itens de menu esmaecendo (b1 04), dicas deslizando (b1 08), sombra do ponteiro (b1 20)
+    // e controles animados (b4 02). Desfazer volta ao padrão do Windows (tudo ligado).
+    "id": "efeitos-visuais-leves",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Efeitos visuais leves (Windows mais rápido)",
+    "descricao": "Desliga as animações que deixam o Windows mais lento (janelas ao minimizar e maximizar, barra de tarefas, menus, dicas, Peek e sombra do ponteiro) e mantém o que deixa ele bonito: miniaturas das fotos, letras suaves, sombras das janelas e rolagem suave. Igual a escolher \"Personalizar\" nas Opções de desempenho do Windows. Vale depois de sair e entrar de novo na conta.",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "logoff",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects", "valor": "VisualFXSetting", "kind": "dword", "dados": "3" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop", "valor": "UserPreferencesMask", "kind": "binary", "dados": "98 12 07 80 10 00 00 00" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop\\WindowMetrics", "valor": "MinAnimate", "kind": "sz", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarAnimations", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\DWM", "valor": "EnableAeroPeek", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\DWM", "valor": "AlwaysHibernateThumbnails", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects", "valor": "VisualFXSetting", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop", "valor": "UserPreferencesMask", "kind": "binary", "dados": "9E 3E 07 80 12 00 00 00" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop\\WindowMetrics", "valor": "MinAnimate", "kind": "sz", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarAnimations", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\DWM", "valor": "EnableAeroPeek", "kind": "dword", "dados": "1" },
+      { "tipo": "regDel", "chave": "HKCU\\Software\\Microsoft\\Windows\\DWM", "valor": "AlwaysHibernateThumbnails" }
+    ]
+  },
+  {
+    // extra
+    "id": "sem-atraso-inicializacao",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Remover atraso dos programas de inicialização",
+    "descricao": "Os programas que abrem junto com o Windows começam na hora, sem a espera de cerca de 10 segundos.",
+    "risco": "moderado",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "valor": "StartupDelayInMSec", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "valor": "StartupDelayInMSec" } ]
+  },
+  {
+    "id": "papel-parede-qualidade",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Papel de parede em qualidade máxima",
+    "descricao": "O Windows para de diminuir a qualidade das fotos usadas como papel de parede (por padrão ele reduz para 85%).",
+    "risco": "seguro",
+    "reiniciar": "logoff",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Control Panel\\Desktop", "valor": "JPEGImportQuality", "kind": "dword", "dados": "100" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKCU\\Control Panel\\Desktop", "valor": "JPEGImportQuality" } ]
+  },
+  {
+    "id": "desativar-inicializacao-rapida",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Desativar Inicialização Rápida",
+    "descricao": "Desligar passa a desligar de verdade. Resolve problemas com drivers, atualizações e com dois sistemas no mesmo PC (dual boot). O PC liga alguns segundos mais devagar.",
+    "risco": "moderado",
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power", "valor": "HiberbootEnabled", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power", "valor": "HiberbootEnabled", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "desativar-hibernacao",
+    "categoria": "Desempenho e jogos",
+    "titulo": "Desativar hibernação",
+    "descricao": "Apaga o arquivo hiberfil.sys e libera vários GB no disco C:. A opção Hibernar some e a Inicialização Rápida também é desligada. Em notebook não vale a pena: se a bateria acabar com o PC suspenso, o que não foi salvo se perde.",
+    "risco": "moderado",
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Power", "valor": "HibernateEnabled", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Power", "valor": "HibernateEnabled", "kind": "dword", "dados": "1" } ]
+  },
+
+  // ---------------- Serviços ----------------
+  {
+    "id": "servico-registro-remoto",
+    "categoria": "Serviços",
+    "titulo": "Desativar Registro Remoto",
+    "descricao": "Impede que outros computadores da rede leiam ou mudem as configurações internas do Windows (o registro).",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "servico", "servico": "RemoteRegistry", "inicio": "disabled" } ],
+    "desativar": [ { "tipo": "servico", "servico": "RemoteRegistry", "inicio": "manual" } ]
+  },
+  {
+    // extra
+    "id": "servico-diagtrack",
+    "categoria": "Serviços",
+    "titulo": "Desativar serviço de telemetria (DiagTrack)",
+    "descricao": "Desliga o serviço que envia dados de uso à Microsoft (no Windows ele se chama \"Experiências do Usuário Conectado e Telemetria\").",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "servico", "servico": "DiagTrack", "inicio": "disabled" } ],
+    "desativar": [ { "tipo": "servico", "servico": "DiagTrack", "inicio": "auto" } ]
+  },
+  {
+    "id": "servico-relatorio-erros",
+    "categoria": "Serviços",
+    "titulo": "Desativar Relatório de Erros do Windows",
+    "descricao": "Para de gerar e enviar relatórios quando um programa trava.",
+    "risco": "moderado",
+    "reiniciar": "reboot",
+    "ativar": [
+      { "tipo": "servico", "servico": "WerSvc", "inicio": "disabled" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Error Reporting", "valor": "Disabled", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "servico", "servico": "WerSvc", "inicio": "manual" },
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Error Reporting", "valor": "Disabled" }
+    ]
+  },
+  {
+    "id": "servico-windows-search",
+    "categoria": "Serviços",
+    "titulo": "Desativar indexação (Windows Search)",
+    "descricao": "Em PCs fracos com HD (disco mecânico), diminui o uso do disco e do processador. Em troca, a pesquisa de arquivos fica bem mais lenta, e a busca do Outlook e das Configurações pode parar de achar as coisas.",
+    "risco": "avancado",
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "servico", "servico": "WSearch", "inicio": "disabled" } ],
+    "desativar": [ { "tipo": "servico", "servico": "WSearch", "inicio": "delayed" } ]
+  },
+  {
+    // extra
+    "id": "servico-sysmain",
+    "categoria": "Serviços",
+    "titulo": "Desativar SysMain (Superfetch)",
+    "descricao": "O Windows para de carregar programas na memória antes de você abrir. Ajuda PCs com HD (disco mecânico) que vivem com o disco em 100%. Em SSD não vale a pena.",
+    "risco": "avancado",
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "servico", "servico": "SysMain", "inicio": "disabled" } ],
+    "desativar": [ { "tipo": "servico", "servico": "SysMain", "inicio": "auto" } ]
+  },
+
+  // ---------------- Windows Update ----------------
+  {
+    "id": "wu-sem-reinicio",
+    "categoria": "Windows Update",
+    "titulo": "Não reiniciar sozinho com usuário logado",
+    "descricao": "Atualizações não reiniciam o PC enquanto você estiver usando.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU", "valor": "NoAutoRebootWithLoggedOnUsers", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU", "valor": "NoAutoRebootWithLoggedOnUsers" } ]
+  },
+  {
+    "id": "wu-sem-drivers",
+    "categoria": "Windows Update",
+    "titulo": "Não instalar drivers pelo Windows Update",
+    "descricao": "O Windows Update para de instalar drivers (os programas que fazem as peças funcionarem). Útil quando ele troca o driver de vídeo ou som que você instalou do site do fabricante.",
+    "risco": "moderado",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate", "valor": "ExcludeWUDriversInQualityUpdate", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate", "valor": "ExcludeWUDriversInQualityUpdate" } ]
+  },
+
+  // ---------------- Rede e segurança ----------------
+  {
+    "id": "desativar-smb1",
+    "categoria": "Rede e segurança",
+    "titulo": "Desativar o protocolo SMB1",
+    "descricao": "Desliga um jeito antigo de compartilhar arquivos pela rede, usado pelo vírus WannaCry. Só deixe ligado se você compartilha arquivos com aparelhos muito antigos.",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "reboot",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "SMB1", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "SMB1" } ]
+  },
+  {
+    "id": "sem-assistencia-remota",
+    "categoria": "Rede e segurança",
+    "titulo": "Bloquear convites de Assistência Remota",
+    "descricao": "Fecha uma porta usada em golpes de \"suporte técnico\".",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance", "valor": "fAllowToGetHelp", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Remote Assistance", "valor": "fAllowToGetHelp", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "sem-compartilhamento-admin",
+    "categoria": "Rede e segurança",
+    "titulo": "Desativar compartilhamentos administrativos (C$, ADMIN$)",
+    "descricao": "Fecha o acesso escondido aos seus discos pela rede (C$, ADMIN$), usado por técnicos. Bom para PC de casa; em PC de empresa não use: o suporte de TI e os programas de gerenciamento da empresa param de alcançar o PC.",
+    "risco": "avancado",
+    "reiniciar": "reboot",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "AutoShareServer", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "AutoShareWks", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "AutoShareServer" },
+      { "tipo": "regDel", "chave": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "valor": "AutoShareWks" }
+    ]
+  },
+
+  // ---------------- Apps ----------------
+  {
+    "id": "desativar-onedrive",
+    "categoria": "Apps",
+    "titulo": "Desativar o OneDrive",
+    "descricao": "Impede o OneDrive de sincronizar. Seus arquivos na nuvem não são apagados, mas se suas pastas Documentos, Área de Trabalho ou Imagens estão no OneDrive, os arquivos que estão só na nuvem deixam de abrir e nada novo ganha cópia de segurança, até você desfazer este ajuste.",
+    "risco": "avancado",
+    "ativar": [ { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive", "valor": "DisableFileSyncNGSC", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive", "valor": "DisableFileSyncNGSC" } ]
+  },
+
+  // ---------------- Aparência e uso (extra, usados no pack pós-formatação) ----------------
+  {
+    "id": "modo-escuro",
+    "categoria": "Aparência e uso",
+    "titulo": "Modo escuro no Windows e nos apps",
+    "descricao": "Deixa o Windows, o Explorador e os apps que seguem o sistema com fundo escuro.",
+    "risco": "seguro",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "valor": "AppsUseLightTheme", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "valor": "SystemUsesLightTheme", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "valor": "AppsUseLightTheme", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "valor": "SystemUsesLightTheme", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "icone-este-computador",
+    "categoria": "Aparência e uso",
+    "titulo": "Ícone \"Este Computador\" na Área de Trabalho",
+    "descricao": "Volta o atalho Este Computador para a Área de Trabalho, que some depois de formatar.",
+    "risco": "seguro",
+    "reiniciar": "explorer",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\HideDesktopIcons\\NewStartPanel", "valor": "{20D04FE0-3AEA-1069-A2D8-08002B30309D}", "kind": "dword", "dados": "0" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\HideDesktopIcons\\NewStartPanel", "valor": "{20D04FE0-3AEA-1069-A2D8-08002B30309D}", "kind": "dword", "dados": "1" } ]
+  },
+  {
+    "id": "historico-area-transferencia",
+    "categoria": "Aparência e uso",
+    "titulo": "Histórico da área de transferência (Win + V)",
+    "descricao": "Guarda as últimas coisas que você copiou; aperte Win + V para colar uma delas.",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Clipboard", "valor": "EnableClipboardHistory", "kind": "dword", "dados": "1" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Software\\Microsoft\\Clipboard", "valor": "EnableClipboardHistory", "kind": "dword", "dados": "0" } ]
+  },
+  {
+    "id": "numlock-inicio",
+    "categoria": "Teclado e mouse",
+    "titulo": "Num Lock ligado ao iniciar",
+    "descricao": "O teclado numérico já funciona na tela de senha, sem precisar apertar Num Lock. Não use em notebook sem teclado numérico separado: em alguns, o Num Lock transforma letras (U, I, O, J, K, L, M) em números e a senha sai errada.",
+    "risco": "moderado",
+    "reiniciar": "reboot",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKU\\.DEFAULT\\Control Panel\\Keyboard", "valor": "InitialKeyboardIndicators", "kind": "sz", "dados": "2" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Keyboard", "valor": "InitialKeyboardIndicators", "kind": "sz", "dados": "2" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKU\\.DEFAULT\\Control Panel\\Keyboard", "valor": "InitialKeyboardIndicators", "kind": "sz", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Keyboard", "valor": "InitialKeyboardIndicators", "kind": "sz", "dados": "0" }
+    ]
+  },
+  {
+    "id": "sem-teclas-aderentes",
+    "categoria": "Teclado e mouse",
+    "titulo": "Não perguntar das Teclas de Aderência",
+    "descricao": "Apertar Shift 5 vezes (comum em jogos) deixa de abrir a janela das Teclas de Aderência.",
+    "risco": "seguro",
+    "ativar": [ { "tipo": "reg", "chave": "HKCU\\Control Panel\\Accessibility\\StickyKeys", "valor": "Flags", "kind": "sz", "dados": "506" } ],
+    "desativar": [ { "tipo": "reg", "chave": "HKCU\\Control Panel\\Accessibility\\StickyKeys", "valor": "Flags", "kind": "sz", "dados": "510" } ]
+  },
+  {
+    "id": "sem-aceleracao-mouse",
+    "categoria": "Teclado e mouse",
+    "titulo": "Desligar a aceleração do mouse",
+    "descricao": "O ponteiro anda sempre a mesma distância para o mesmo movimento. Melhor para mira em jogos. Em notebook com touchpad mais antigo, o ponteiro pode ficar lento para atravessar a tela.",
+    "risco": "seguro",
+    "reiniciar": "logoff",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseSpeed", "kind": "sz", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseThreshold1", "kind": "sz", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseThreshold2", "kind": "sz", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseSpeed", "kind": "sz", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseThreshold1", "kind": "sz", "dados": "6" },
+      { "tipo": "reg", "chave": "HKCU\\Control Panel\\Mouse", "valor": "MouseThreshold2", "kind": "sz", "dados": "10" }
+    ]
+  },
+
+  // ---------------- Novos (04/11/2026): IA, propaganda, privacidade e permissões (inspirados no O&O ShutUp10++) ----------------
+  {
+    "id": "desativar-copilot",
+    "categoria": "Inteligência artificial do Windows",
+    "titulo": "Desativar o Copilot do Windows",
+    "descricao": "Tira o Copilot da barra de tarefas e desliga o assistente de IA do Windows. O app Copilot, se instalado, pode ser removido no Desinstalador. Quem usa o Copilot deve deixar desligado.",
+    "risco": "seguro",
+    "minBuild": 22000,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "valor": "TurnOffWindowsCopilot", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "valor": "TurnOffWindowsCopilot", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowCopilotButton", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "valor": "TurnOffWindowsCopilot" },
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot", "valor": "TurnOffWindowsCopilot" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowCopilotButton", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "desativar-recall",
+    "categoria": "Inteligência artificial do Windows",
+    "titulo": "Desativar o Recall (fotos da tela)",
+    "descricao": "O Recall tira fotos da tela de tempos em tempos para você pesquisar depois. Desligado, nenhuma foto é guardada. Só existe nos PCs Copilot+; nos outros, este ajuste não muda nada.",
+    "risco": "seguro",
+    "recomendado": true,
+    "minBuild": 26100,
+    "reiniciar": "reboot",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableAIDataAnalysis", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableAIDataAnalysis", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "AllowRecallEnablement", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableAIDataAnalysis" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableAIDataAnalysis" },
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "AllowRecallEnablement" }
+    ]
+  },
+  {
+    "id": "desativar-clicktodo",
+    "categoria": "Inteligência artificial do Windows",
+    "titulo": "Desativar o Clique para Fazer (Click to Do)",
+    "descricao": "Desliga a função de IA que analisa o que está na tela para sugerir ações. Só existe nos PCs Copilot+.",
+    "risco": "seguro",
+    "minBuild": 26100,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableClickToDo", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableClickToDo", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableClickToDo" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsAI", "valor": "DisableClickToDo" }
+    ]
+  },
+  {
+    "id": "sem-widgets",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Desligar os Widgets (notícias e clima)",
+    "descricao": "Tira o painel de Widgets e as notícias da barra de tarefas. Ele fica carregando notícias e propaganda em segundo plano. O clima na barra também some.",
+    "risco": "seguro",
+    "minBuild": 22000,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh", "valor": "AllowNewsAndInterests", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh", "valor": "AllowNewsAndInterests" }
+    ]
+  },
+  {
+    "id": "sem-noticias-win10",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Desligar Notícias e interesses",
+    "descricao": "Tira as notícias e o clima da barra de tarefas do Windows 10, que ficam carregando em segundo plano.",
+    "risco": "seguro",
+    "maxBuild": 21999,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Feeds", "valor": "EnableFeeds", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Feeds", "valor": "EnableFeeds" }
+    ]
+  },
+  {
+    "id": "sem-recomendacoes-iniciar",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Tirar as dicas e apps promovidos do Iniciar",
+    "descricao": "Para de mostrar no Iniciar dicas, atalhos e apps que a Microsoft promove. Seus arquivos recentes continuam lá.",
+    "risco": "seguro",
+    "recomendado": true,
+    "minBuild": 22621,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Start_IrisRecommendations", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Start_IrisRecommendations" }
+    ]
+  },
+  {
+    "id": "sem-avisos-conta-iniciar",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Sem avisos da conta Microsoft no Iniciar",
+    "descricao": "Tira do Iniciar os avisos insistentes para entrar ou fazer backup com a conta Microsoft.",
+    "risco": "seguro",
+    "recomendado": true,
+    "minBuild": 22621,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Start_AccountNotifications", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "Start_AccountNotifications" }
+    ]
+  },
+  {
+    "id": "finalizar-tarefa-barra",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "\"Finalizar tarefa\" no botão direito da barra",
+    "descricao": "Clicando com o botão direito num programa travado na barra de tarefas, aparece \"Finalizar tarefa\", que fecha na hora, sem abrir o Gerenciador de Tarefas.",
+    "risco": "seguro",
+    "minBuild": 22631,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings", "valor": "TaskbarEndTask", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings", "valor": "TaskbarEndTask" }
+    ]
+  },
+  {
+    "id": "barra-tarefas-pequena",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Barra de tarefas menor",
+    "descricao": "Deixa a barra de tarefas mais baixa e os ícones menores, sobrando mais espaço na tela. Usa a opção do próprio Windows (Configurações > Personalização > Barra de tarefas): nenhum programa extra.",
+    "risco": "seguro",
+    "minBuild": 26100,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarSize", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "IconSizePreference", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarSize", "kind": "dword", "dados": "0" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "IconSizePreference" }
+    ]
+  },
+  {
+    "id": "barra-tarefas-pequena-win10",
+    "categoria": "Barra de tarefas e Iniciar",
+    "titulo": "Barra de tarefas menor",
+    "descricao": "Usa os ícones pequenos da barra de tarefas do Windows 10, que fica mais baixa e mostra mais programas.",
+    "risco": "seguro",
+    "maxBuild": 21999,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarSmallIcons", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "TaskbarSmallIcons", "kind": "dword", "dados": "0" }
+    ]
+  },
+  {
+    "id": "sem-propaganda-bloqueio",
+    "categoria": "Propaganda e sugestões",
+    "titulo": "Sem propaganda na tela de bloqueio",
+    "descricao": "Tira as dicas, curiosidades e anúncios que aparecem por cima da foto da tela de bloqueio.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "RotatingLockScreenOverlayEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338387Enabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "RotatingLockScreenOverlayEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338387Enabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-sugestoes-configuracoes",
+    "categoria": "Propaganda e sugestões",
+    "titulo": "Sem sugestões nas Configurações",
+    "descricao": "Para de mostrar conteúdo sugerido e propaganda de serviços da Microsoft dentro das Configurações.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338393Enabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-353694Enabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-353696Enabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-338393Enabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-353694Enabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-353696Enabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-boas-vindas-atualizacao",
+    "categoria": "Propaganda e sugestões",
+    "titulo": "Sem tela de \"boas-vindas\" depois das atualizações",
+    "descricao": "Depois de uma atualização grande, o Windows deixa de abrir a tela que oferece serviços da Microsoft (\"Vamos terminar de configurar o seu dispositivo\").",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-310093Enabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement", "valor": "ScoobeSystemSettingEnabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "valor": "SubscribedContent-310093Enabled", "kind": "dword", "dados": "1" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement", "valor": "ScoobeSystemSettingEnabled" }
+    ]
+  },
+  {
+    "id": "sem-anuncios-explorador",
+    "categoria": "Propaganda e sugestões",
+    "titulo": "Sem anúncios no Explorador de Arquivos",
+    "descricao": "Tira os avisos que oferecem OneDrive e Microsoft 365 no topo do Explorador de Arquivos.",
+    "risco": "seguro",
+    "recomendado": true,
+    "reiniciar": "explorer",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowSyncProviderNotifications", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "valor": "ShowSyncProviderNotifications" }
+    ]
+  },
+  {
+    "id": "sem-destaques-pesquisa",
+    "categoria": "Propaganda e sugestões",
+    "titulo": "Sem destaques na pesquisa",
+    "descricao": "Tira as ilustrações de datas comemorativas e as \"novidades do dia\" da caixa de pesquisa. A pesquisa continua igual.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsDynamicSearchBoxEnabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsDynamicSearchBoxEnabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-pedidos-feedback",
+    "categoria": "Privacidade",
+    "titulo": "Não pedir opinião (feedback)",
+    "descricao": "O Windows para de abrir perguntas pedindo sua opinião sobre ele.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Siuf\\Rules", "valor": "NumberOfSIUFInPeriod", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "valor": "DoNotShowFeedbackNotifications", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Microsoft\\Siuf\\Rules", "valor": "NumberOfSIUFInPeriod" },
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "valor": "DoNotShowFeedbackNotifications" }
+    ]
+  },
+  {
+    "id": "sem-experiencias-personalizadas",
+    "categoria": "Privacidade",
+    "titulo": "Sem dicas e ofertas pelos seus dados de uso",
+    "descricao": "A Microsoft deixa de usar os dados de diagnóstico do PC para escolher dicas, anúncios e recomendações para você.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Privacy", "valor": "TailoredExperiencesWithDiagnosticDataEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "valor": "DisableTailoredExperiencesWithDiagnosticData", "kind": "dword", "dados": "1" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Privacy", "valor": "TailoredExperiencesWithDiagnosticDataEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "regDel", "chave": "HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "valor": "DisableTailoredExperiencesWithDiagnosticData" }
+    ]
+  },
+  {
+    "id": "sem-coleta-digitacao",
+    "categoria": "Privacidade",
+    "titulo": "Não enviar o que você digita e escreve à mão",
+    "descricao": "Para de mandar à Microsoft amostras do que você digita e escreve com caneta (usadas para \"melhorar\" o teclado). O corretor e as sugestões do teclado continuam funcionando.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization", "valor": "RestrictImplicitInkCollection", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization", "valor": "RestrictImplicitTextCollection", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization\\TrainedDataStore", "valor": "HarvestContacts", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Personalization\\Settings", "valor": "AcceptedPrivacyPolicy", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Input\\TIPC", "valor": "Enabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization", "valor": "RestrictImplicitInkCollection", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization", "valor": "RestrictImplicitTextCollection", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\InputPersonalization\\TrainedDataStore", "valor": "HarvestContacts", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Personalization\\Settings", "valor": "AcceptedPrivacyPolicy", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Input\\TIPC", "valor": "Enabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-pesquisa-nuvem",
+    "categoria": "Privacidade",
+    "titulo": "Pesquisa do Windows só no PC",
+    "descricao": "A pesquisa do Iniciar para de procurar nos seus e-mails, OneDrive e conta Microsoft e de guardar o histórico de pesquisas. Os arquivos e programas do PC continuam aparecendo.",
+    "risco": "seguro",
+    "recomendado": true,
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsMSACloudSearchEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsAADCloudSearchEnabled", "kind": "dword", "dados": "0" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsDeviceSearchHistoryEnabled", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsMSACloudSearchEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsAADCloudSearchEnabled", "kind": "dword", "dados": "1" },
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings", "valor": "IsDeviceSearchHistoryEnabled", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-voz-online",
+    "categoria": "Privacidade",
+    "titulo": "Desligar o reconhecimento de voz pela internet",
+    "descricao": "Sua voz deixa de ser enviada à Microsoft para virar texto. Atenção: o ditado por voz (Win + H) e a fala com a Cortana param de funcionar. Deixe ligado se você dita textos.",
+    "risco": "moderado",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Speech_OneCore\\Settings\\OnlineSpeechPrivacy", "valor": "HasAccepted", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKCU\\SOFTWARE\\Microsoft\\Speech_OneCore\\Settings\\OnlineSpeechPrivacy", "valor": "HasAccepted", "kind": "dword", "dados": "1" }
+    ]
+  },
+  {
+    "id": "sem-area-transferencia-nuvem",
+    "categoria": "Privacidade",
+    "titulo": "Não sincronizar a área de transferência",
+    "descricao": "O que você copia (Ctrl + C) não vai para a nuvem nem para outros aparelhos da sua conta. O histórico Win + V no próprio PC continua.",
+    "risco": "seguro",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "valor": "AllowCrossDeviceClipboard", "kind": "dword", "dados": "0" }
+    ],
+    "desativar": [
+      { "tipo": "regDel", "chave": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "valor": "AllowCrossDeviceClipboard" }
+    ]
+  },
+  {
+    "id": "apps-sem-localizacao",
+    "categoria": "Permissões dos apps",
+    "titulo": "Desligar a localização",
+    "descricao": "Nenhum app nem o Windows sabem onde o PC está. Atenção: o clima, os mapas, o fuso horário automático e o \"Localizar meu dispositivo\" deixam de funcionar.",
+    "risco": "moderado",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location", "valor": "Value", "kind": "sz", "dados": "Deny" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location", "valor": "Value", "kind": "sz", "dados": "Allow" }
+    ]
+  },
+  {
+    "id": "apps-sem-info-conta",
+    "categoria": "Permissões dos apps",
+    "titulo": "Apps não leem seu nome e sua foto da conta",
+    "descricao": "Os apps da Microsoft Store deixam de ver o nome, a foto e outras informações da sua conta. Alguns apps pedem o nome de novo.",
+    "risco": "moderado",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\userAccountInformation", "valor": "Value", "kind": "sz", "dados": "Deny" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\userAccountInformation", "valor": "Value", "kind": "sz", "dados": "Allow" }
+    ]
+  },
+  {
+    "id": "apps-sem-contatos-agenda",
+    "categoria": "Permissões dos apps",
+    "titulo": "Apps não leem contatos, agenda, e-mails e ligações",
+    "descricao": "Os apps da Microsoft Store deixam de acessar seus contatos, compromissos, e-mails, mensagens e ligações. Atenção: Email, Calendário e Vincular ao Celular do Windows param de funcionar; o Outlook e o navegador não são afetados.",
+    "risco": "avancado",
+    "ativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\contacts", "valor": "Value", "kind": "sz", "dados": "Deny" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\appointments", "valor": "Value", "kind": "sz", "dados": "Deny" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\email", "valor": "Value", "kind": "sz", "dados": "Deny" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\chat", "valor": "Value", "kind": "sz", "dados": "Deny" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\phoneCall", "valor": "Value", "kind": "sz", "dados": "Deny" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\phoneCallHistory", "valor": "Value", "kind": "sz", "dados": "Deny" }
+    ],
+    "desativar": [
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\contacts", "valor": "Value", "kind": "sz", "dados": "Allow" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\appointments", "valor": "Value", "kind": "sz", "dados": "Allow" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\email", "valor": "Value", "kind": "sz", "dados": "Allow" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\chat", "valor": "Value", "kind": "sz", "dados": "Allow" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\phoneCall", "valor": "Value", "kind": "sz", "dados": "Allow" },
+      { "tipo": "reg", "chave": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\phoneCallHistory", "valor": "Value", "kind": "sz", "dados": "Allow" }
+    ]
+  }
+]

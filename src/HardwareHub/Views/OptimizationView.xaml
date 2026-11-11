@@ -1,0 +1,384 @@
+<UserControl x:Class="HardwareHub.Views.OptimizationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Foreground="#F4F4F5">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <Style x:Key="FlatButtonStyle" TargetType="Button">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SubTabButtonStyle" TargetType="Button" BasedOn="{StaticResource FlatButtonStyle}">
+            <Setter Property="Background" Value="#27272A" />
+            <Setter Property="Foreground" Value="#E4E4E7" />
+            <Setter Property="BorderBrush" Value="#3F3F46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Cabeçalho -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                <TextBlock Text="Otimizações, Tweaks &amp; Bloatware" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" TextWrapping="Wrap" />
+                <TextBlock Text="Ajustes seguros do Windows com backup automático, remoção de bloatware e reversão completa" FontSize="12" Foreground="#A1A1AA" Margin="0,2,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Command="{Binding RestartExplorerCommand}" Style="{StaticResource FlatButtonStyle}"
+                        Background="#27272A" Foreground="#E4E4E7" Padding="12,7" BorderThickness="1" BorderBrush="#3F3F46" Margin="0,0,8,0"
+                        ToolTip="Reinicia o Windows Explorer para aplicar ajustes visuais da barra de tarefas e pastas">
+                    <TextBlock Text="🔄 Reiniciar Explorer" FontSize="12" FontWeight="SemiBold" />
+                </Button>
+                <Button Command="{Binding ApplyRecommendedTweaksCommand}" Style="{StaticResource FlatButtonStyle}"
+                        Background="#4F46E5" Foreground="#FFFFFF" Padding="14,7">
+                    <TextBlock Text="✨ Aplicar Recomendados" FontSize="12" FontWeight="Bold" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Sub-abas -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Style="{StaticResource SubTabButtonStyle}" Command="{Binding SwitchSubTabCommand}" CommandParameter="Perfis">
+                <TextBlock Text="🎯 Perfis Prontos" />
+            </Button>
+            <Button Style="{StaticResource SubTabButtonStyle}" Command="{Binding SwitchSubTabCommand}" CommandParameter="Tweaks">
+                <TextBlock Text="{Binding ActiveTweaksCount, StringFormat='⚙️ Ajustes do Windows ({0} ativos)'}" />
+            </Button>
+            <Button Style="{StaticResource SubTabButtonStyle}" Command="{Binding SwitchSubTabCommand}" CommandParameter="Bloatware">
+                <TextBlock Text="🧹 Removedor de Bloatware" />
+            </Button>
+            <Button Style="{StaticResource SubTabButtonStyle}" Command="{Binding SwitchSubTabCommand}" CommandParameter="Desfazer">
+                <TextBlock Text="{Binding UndoableCount, StringFormat='↩️ Central Desfazer ({0})'}" />
+            </Button>
+        </StackPanel>
+
+        <!-- Banner de status -->
+        <Border Grid.Row="2" Visibility="{Binding HasStatusBanner, Converter={StaticResource BoolToVis}}"
+                Background="#1E1B4B" BorderBrush="#6366F1" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock Text="{Binding OptimizationStatusBanner}" Foreground="#C7D2FE" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <ProgressBar IsIndeterminate="True" Height="4" Margin="0,6,0,0"
+                                 Visibility="{Binding IsBusyOptimization, Converter={StaticResource BoolToVis}}"
+                                 Foreground="#818CF8" Background="#312E81" BorderThickness="0" />
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding CancelOptimizationCommand}" Style="{StaticResource FlatButtonStyle}"
+                        Visibility="{Binding IsBusyOptimization, Converter={StaticResource BoolToVis}}"
+                        Background="#DC2626" Foreground="#FFFFFF" Padding="12,5" VerticalAlignment="Center">
+                    <TextBlock Text="⏹ Cancelar" FontSize="11" FontWeight="Bold" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Conteúdo das Sub-abas -->
+        <Grid Grid.Row="3">
+            <!-- 1. Perfis Prontos -->
+            <ScrollViewer Visibility="{Binding IsPerfisTab, Converter={StaticResource BoolToVis}}" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Escolha um perfil de otimização. Todos os ajustes salvam backup automático antes de alterar o sistema e preservam Defender, Firewall e Windows Update."
+                               Foreground="#A1A1AA" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <ItemsControl ItemsSource="{Binding Profiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Margin="0,0,16,0">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <Border Background="{Binding AccentColor}" CornerRadius="4" Padding="8,2" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding Nome}" Foreground="#FFFFFF" FontSize="12" FontWeight="Bold" />
+                                                </Border>
+                                                <TextBlock Text="{Binding TweakCountText}" Foreground="#A1A1AA" FontSize="12" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Resumo}" Foreground="#FAFAFA" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Detalhes}" Foreground="#9CA3AF" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Command="{Binding DataContext.ApplyProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" Style="{StaticResource FlatButtonStyle}" VerticalAlignment="Center"
+                                                Background="{Binding AccentColor}" Foreground="#FFFFFF" Padding="16,9">
+                                            <TextBlock Text="Aplicar Perfil" FontSize="12" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 2. Ajustes do Windows -->
+            <Grid Visibility="{Binding IsTweaksTab, Converter={StaticResource BoolToVis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Text="{Binding TweakSearch, UpdateSourceTrigger=PropertyChanged}"
+                             Background="#202023" Foreground="#FAFAFA" BorderBrush="#3F3F46" BorderThickness="1"
+                             Padding="10,7" FontSize="12" ToolTip="Buscar ajuste por título, descrição ou categoria" Margin="0,0,8,0" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding TweakCategories}" SelectedItem="{Binding SelectedTweakCategory}"
+                              Background="#202023" Foreground="#FAFAFA" BorderBrush="#3F3F46" Padding="8,6" Margin="0,0,8,0" />
+                    <CheckBox Grid.Column="2" IsChecked="{Binding ShowOnlyActiveTweaks}" Content="Somente ativos"
+                              Foreground="#D4D4D8" VerticalAlignment="Center" />
+                </Grid>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding FilteredTweaks}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,0,0,8" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,14,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                            <TextBlock Text="{Binding Titulo}" Foreground="#FFFFFF" FontSize="13" FontWeight="Bold" />
+                                            <Border Background="{Binding RiskColor}" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding RiskLabel}" Foreground="#FFFFFF" FontSize="10" FontWeight="Bold" />
+                                            </Border>
+                                            <Border Background="#27272A" CornerRadius="4" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding HasRestartNote, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="{Binding RestartNote}" Foreground="#FBBF24" FontSize="10" FontWeight="SemiBold" />
+                                            </Border>
+                                            <Border Background="#1E1B4B" CornerRadius="4" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding Recomendado, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="Recomendado" Foreground="#A5B4FC" FontSize="10" FontWeight="SemiBold" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Categoria}" Foreground="#818CF8" FontSize="11" Margin="0,0,0,2" />
+                                        <TextBlock Text="{Binding Descricao}" Foreground="#A1A1AA" FontSize="12" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Command="{Binding DataContext.ToggleTweakCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" IsEnabled="{Binding CanInteract}" Style="{StaticResource FlatButtonStyle}" VerticalAlignment="Center"
+                                            Background="#27272A" Foreground="#FFFFFF" Padding="14,7" BorderThickness="1" BorderBrush="#3F3F46">
+                                        <TextBlock Text="{Binding ActionButtonText}" FontSize="12" FontWeight="Bold" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <!-- 3. Removedor de Bloatware -->
+            <Grid Visibility="{Binding IsBloatwareTab, Converter={StaticResource BoolToVis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <WrapPanel Margin="0,0,0,8">
+                        <Button Command="{Binding ScanBloatwareCommand}" Style="{StaticResource FlatButtonStyle}" Background="#4F46E5" Foreground="#FFFFFF" Padding="12,7" Margin="0,0,8,0">
+                            <TextBlock Text="🔍 Varrer Apps Instalados" FontSize="12" FontWeight="Bold" />
+                        </Button>
+                        <Button Command="{Binding SelectRecommendedBloatwareCommand}" Style="{StaticResource FlatButtonStyle}" Background="#27272A" Foreground="#E4E4E7" Padding="12,7" BorderThickness="1" BorderBrush="#3F3F46" Margin="0,0,8,0">
+                            <TextBlock Text="☑️ Marcar Recomendados" FontSize="12" FontWeight="SemiBold" />
+                        </Button>
+                        <Button Command="{Binding RemoveSelectedBloatwareCommand}" Style="{StaticResource FlatButtonStyle}" Background="#DC2626" Foreground="#FFFFFF" Padding="12,7" Margin="0,0,12,0">
+                            <TextBlock Text="🗑️ Remover Selecionados" FontSize="12" FontWeight="Bold" />
+                        </Button>
+                        <CheckBox IsChecked="{Binding AlsoRemoveForNewUsers}" Content="Também para novos usuários (Desprovisionar)" Foreground="#D4D4D8" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <CheckBox IsChecked="{Binding ShowProtectedBloatware}" Content="Mostrar protegidos do sistema" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                    </WrapPanel>
+                    <TextBox Text="{Binding BloatwareSearch, UpdateSourceTrigger=PropertyChanged}"
+                             Background="#202023" Foreground="#FAFAFA" BorderBrush="#3F3F46" BorderThickness="1"
+                             Padding="10,6" FontSize="12" ToolTip="Filtrar apps encontrados" />
+                </StackPanel>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding FilteredBloatware}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,0,0,8" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanInteract}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                            <TextBlock Text="{Binding Nome}" Foreground="#FFFFFF" FontSize="13" FontWeight="Bold" />
+                                            <Border Background="{Binding LevelColor}" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding LevelText}" Foreground="#FFFFFF" FontSize="10" FontWeight="Bold" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Descricao}" Foreground="#A1A1AA" FontSize="12" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Aviso}" Foreground="#FBBF24" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding StatusText}" Foreground="#A5B4FC" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <!-- 4. Central Desfazer -->
+            <Grid Visibility="{Binding IsUndoTab, Converter={StaticResource BoolToVis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Todo ajuste aplicado grava o valor anterior de registro ou serviço aqui. Você pode reverter individualmente ou restaurar tudo."
+                               Foreground="#A1A1AA" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <Button Grid.Column="1" Command="{Binding RevertAllBackupsCommand}" Style="{StaticResource FlatButtonStyle}" Background="#DC2626" Foreground="#FFFFFF" Padding="14,7">
+                        <TextBlock Text="↩️ Desfazer Tudo" FontSize="12" FontWeight="Bold" />
+                    </Button>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Ajustes aplicados com backup:" Foreground="#E4E4E7" FontSize="13" FontWeight="Bold" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding UndoableTweaks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Titulo}" Foreground="#FFFFFF" FontSize="13" FontWeight="Bold" />
+                                                <TextBlock Text="{Binding FormattedAppliedAt, StringFormat='Aplicado em: {0}'}" Foreground="#A1A1AA" FontSize="11" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Command="{Binding DataContext.RevertSingleBackupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" Style="{StaticResource FlatButtonStyle}" VerticalAlignment="Center"
+                                                    Background="#27272A" Foreground="#FAFAFA" Padding="12,6" BorderThickness="1" BorderBrush="#3F3F46">
+                                                <TextBlock Text="Desfazer" FontSize="12" FontWeight="SemiBold" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Bloatwares removidos (reinstalar):" Foreground="#E4E4E7" FontSize="13" FontWeight="Bold" Margin="0,14,0,8" />
+                        <ItemsControl ItemsSource="{Binding RemovedHistory}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Nome}" Foreground="#FFFFFF" FontSize="13" FontWeight="Bold" />
+                                                <TextBlock Text="{Binding Pacote}" Foreground="#A1A1AA" FontSize="11" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Command="{Binding DataContext.ReinstallBloatwareCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" Style="{StaticResource FlatButtonStyle}" VerticalAlignment="Center"
+                                                    Background="#27272A" Foreground="#FAFAFA" Padding="12,6" BorderThickness="1" BorderBrush="#3F3F46">
+                                                <TextBlock Text="Reinstalar" FontSize="12" FontWeight="SemiBold" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
+

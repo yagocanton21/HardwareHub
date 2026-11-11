@@ -1,0 +1,522 @@
+<UserControl x:Class="HardwareHub.Views.StorageToolsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Foreground="#FAFAFA">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="FlatButtonStyle" TargetType="Button">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SubTabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#202023" />
+            <Setter Property="Foreground" Value="#A1A1AA" />
+            <Setter Property="BorderBrush" Value="#2E2E33" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#27272A" />
+                                <Setter Property="Foreground" Value="#FAFAFA" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#312E81" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6366F1" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER FIXO -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                <TextBlock Text="Limpeza, Duplicados &amp; Mapa de Disco" FontSize="24" FontWeight="Bold" Foreground="#FAFAFA" TextWrapping="Wrap" />
+                <TextBlock Text="Libere espaço com segurança, encontre arquivos idênticos em 3 estágios e mapeie pastas grandes"
+                           FontSize="12.5" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="⏹ Cancelar"
+                        Command="{Binding CancelStorageTaskCommand}"
+                        Visibility="{Binding IsBusyStorage, Converter={StaticResource BoolToVis}}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#991B1B" Foreground="#FFFFFF"
+                        Padding="14,9" FontWeight="SemiBold" Margin="0,0,8,0" />
+                <Button Content="🔍 Analisar Limpeza"
+                        Command="{Binding ScanCleanCommand}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#27272A" Foreground="#E4E4E7" BorderBrush="#3F3F46" BorderThickness="1"
+                        Padding="14,9" FontWeight="SemiBold" />
+            </StackPanel>
+        </Grid>
+
+        <!-- SUB-TABS -->
+        <WrapPanel Grid.Row="1" Margin="0,0,0,12">
+            <Button Style="{StaticResource SubTabButtonStyle}"
+                    Content="🧹 Limpeza Segura"
+                    Tag="{Binding IsCleanerTabActive}"
+                    Command="{Binding SetSubTabCommand}" CommandParameter="Cleaner" />
+            <Button Style="{StaticResource SubTabButtonStyle}"
+                    Content="🧬 Arquivos Duplicados"
+                    Tag="{Binding IsDuplicatesTabActive}"
+                    Command="{Binding SetSubTabCommand}" CommandParameter="Duplicates" />
+            <Button Style="{StaticResource SubTabButtonStyle}"
+                    Content="🗺️ Mapa de Disco"
+                    Tag="{Binding IsDiskMapTabActive}"
+                    Command="{Binding SetSubTabCommand}" CommandParameter="DiskMap" />
+        </WrapPanel>
+
+        <!-- STATUS BANNER -->
+        <Border Grid.Row="2" Background="#1C1C22" BorderBrush="#312E81" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,0,0,12">
+            <DockPanel LastChildFill="True">
+                <ProgressBar DockPanel.Dock="Right" Width="130" Height="6" IsIndeterminate="True"
+                             Visibility="{Binding IsBusyStorage, Converter={StaticResource BoolToVis}}"
+                             VerticalAlignment="Center" Margin="12,0,0,0" />
+                <TextBlock Text="{Binding StorageStatusBanner}" Foreground="#C7D2FE" FontSize="12"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
+        <!-- ================= SUB-TAB 1: LIMPEZA SEGURA ================= -->
+        <Grid Grid.Row="3" Visibility="{Binding IsCleanerTabActive, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Barra de pesquisa + ações -->
+            <Grid Grid.Row="0" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding CleanupSearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#18181B" Foreground="#FAFAFA" CaretBrush="#FAFAFA"
+                         BorderBrush="#3F3F46" BorderThickness="1" Padding="10,7" FontSize="12.5"
+                         Margin="0,0,10,0" ToolTip="Filtrar regras de limpeza por nome ou descrição..." />
+                <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                    <Button Content="✓ Selecionar Seguros"
+                            Command="{Binding SelectSafeCleanCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,6,0" FontSize="12" />
+                    <Button Content="{Binding SelectAllCleanLabel}"
+                            Command="{Binding ToggleSelectAllCleanCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,6,0" FontSize="12" />
+                    <Button Content="🧹 Limpar Selecionados"
+                            Command="{Binding CleanSelectedCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#4F46E5" Foreground="#FFFFFF" Padding="14,7" FontWeight="SemiBold" FontSize="12" />
+                </WrapPanel>
+            </Grid>
+
+            <!-- Resumo + categorias -->
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ItemsControl Grid.Column="0" ItemsSource="{Binding CleanupCategories}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}"
+                                    Command="{Binding DataContext.SetCleanupCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource FlatButtonStyle}"
+                                    Background="#202023" Foreground="#D4D4D8" BorderBrush="#2E2E33" BorderThickness="1"
+                                    Padding="10,5" Margin="0,0,6,6" FontSize="11.5" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right" Margin="12,0,0,0">
+                    <TextBlock Text="{Binding SelectedCleanSummary}" Foreground="#A5B4FC" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                    <TextBlock Text="{Binding TotalEstimatedCleanText}" Foreground="#A1A1AA" FontSize="11.5" HorizontalAlignment="Right" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Lista de regras -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                <ItemsControl ItemsSource="{Binding FilteredCleanupItems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1"
+                                    CornerRadius="10" Padding="12,10" Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Titulo}" FontSize="13.5" FontWeight="SemiBold" Foreground="#FAFAFA" Margin="0,0,8,0" />
+                                            <Border Background="{Binding LevelColor}" CornerRadius="5" Padding="6,2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding LevelLabel}" FontSize="10.5" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                            </Border>
+                                            <Border Background="#27272A" CornerRadius="5" Padding="6,2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Categoria}" FontSize="10.5" Foreground="#A1A1AA" />
+                                            </Border>
+                                            <Border Background="#78350F" CornerRadius="5" Padding="6,2"
+                                                    Visibility="{Binding IsBlockedByRunningApp, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="{Binding RunningBlockerApp, StringFormat='Em uso: {0}'}" FontSize="10.5" Foreground="#FDE68A" />
+                                            </Border>
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding Descricao}" FontSize="12" Foreground="#A1A1AA" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                        <TextBlock Text="{Binding Note}" FontSize="11.5" Foreground="#60A5FA" Margin="0,3,0,0"
+                                                   Visibility="{Binding HasNote, Converter={StaticResource BoolToVis}}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Aviso}" FontSize="11.5" Foreground="#FBBF24" Margin="0,3,0,0"
+                                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" MinWidth="92">
+                                        <TextBlock Text="{Binding FormattedSize}" FontSize="14" FontWeight="Bold" Foreground="#E4E4E7" HorizontalAlignment="Right" />
+                                        <TextBlock Text="{Binding FileCount, StringFormat='{}{0:N0} arq.'}" FontSize="11" Foreground="#71717A" HorizontalAlignment="Right" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ================= SUB-TAB 2: ARQUIVOS DUPLICADOS ================= -->
+        <Grid Grid.Row="3" Visibility="{Binding IsDuplicatesTabActive, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Pastas e configurações -->
+            <Border Grid.Row="0" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ItemsControl Grid.Column="0" ItemsSource="{Binding DuplicateFolders}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsSelected}" Foreground="#E4E4E7" Margin="0,0,14,6" ToolTip="{Binding FolderPath}">
+                                        <TextBlock Text="{Binding Label}" FontSize="12.5" />
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Button Content="+ Pasta"
+                                    Click="BrowseDuplicateFolder_Click"
+                                    Style="{StaticResource FlatButtonStyle}"
+                                    Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,8,0" FontSize="12" />
+                            <Button Content="🔎 Buscar Duplicados"
+                                    Command="{Binding FindDuplicatesCommand}"
+                                    Style="{StaticResource FlatButtonStyle}"
+                                    Background="#4F46E5" Foreground="#FFFFFF" Padding="14,7" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+                    </Grid>
+                    <WrapPanel Grid.Row="1" Margin="0,6,0,0" VerticalAlignment="Center">
+                        <CheckBox IsChecked="{Binding SendDuplicatesToRecycleBin}" Content="Mover para a Lixeira (mais seguro)"
+                                  Foreground="#A1A1AA" FontSize="12" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding DuplicatesSummaryText}" Foreground="#A5B4FC" FontSize="12" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <!-- Ações de seleção em lote -->
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <WrapPanel Grid.Column="0">
+                    <Button Content="Manter Mais Antigo"
+                            Command="{Binding KeepOldestDuplicatesCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,8,0" FontSize="12" />
+                    <Button Content="Manter Mais Recente"
+                            Command="{Binding KeepNewestDuplicatesCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,8,0" FontSize="12" />
+                    <Button Content="Desmarcar Tudo"
+                            Command="{Binding ClearDuplicateSelectionsCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#27272A" Foreground="#A1A1AA" Padding="11,7" FontSize="12" />
+                </WrapPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SelectedDuplicatesSummary}" Foreground="#A1A1AA" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button Content="🗑 Remover Selecionados"
+                            Command="{Binding DeleteDuplicatesCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#B91C1C" Foreground="#FFFFFF" Padding="14,7" FontWeight="SemiBold" FontSize="12" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Grupos duplicados -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                <ItemsControl ItemsSource="{Binding DuplicateGroups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding GroupTitle}" FontSize="13.5" FontWeight="SemiBold" Foreground="#FAFAFA" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}" FontSize="12" Foreground="#34D399" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                    <ItemsControl ItemsSource="{Binding Files}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#202025" CornerRadius="6" Padding="8,6" Margin="0,0,0,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding FilePath}" Foreground="#E4E4E7" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding FormattedModified}" Foreground="#A1A1AA" FontSize="11.5" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ================= SUB-TAB 3: MAPA DE DISCO ================= -->
+        <Grid Grid.Row="3" Visibility="{Binding IsDiskMapTabActive, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Barra de seleção de drive / pasta -->
+            <Border Grid.Row="0" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox Grid.Column="0" ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedDriveRoot}"
+                              IsEditable="True" Width="130" Margin="0,0,10,0" VerticalContentAlignment="Center" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="{Binding CurrentFolderPath}" Foreground="#FAFAFA" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DiskMapSummaryText}" Foreground="#A1A1AA" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                        <Button Content="📁 Pasta..."
+                                Click="BrowseDiskMapFolder_Click"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,6,0" FontSize="12" />
+                        <Button Content="⬆ Subir Nível"
+                                Command="{Binding NavigateUpFolderCommand}"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,6,0" FontSize="12" />
+                        <Button Content="📂 Abrir Explorer"
+                                Command="{Binding OpenFolderInExplorerCommand}"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#27272A" Foreground="#E4E4E7" Padding="11,7" Margin="0,0,6,0" FontSize="12" />
+                        <Button Content="🗺 Mapear Disco"
+                                Command="{Binding ScanDiskMapCommand}"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#4F46E5" Foreground="#FFFFFF" Padding="14,7" FontWeight="SemiBold" FontSize="12" />
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <!-- Distribuição por categorias -->
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding DiskCategorySummaries}" Margin="0,0,0,10">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,8,6">
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="10" Height="10" CornerRadius="5" Background="{Binding ColorHex}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Label}" Foreground="#FAFAFA" FontSize="12" FontWeight="SemiBold" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding FormattedSize}" Foreground="#A5B4FC" FontSize="12" Margin="0,0,4,0" />
+                                <TextBlock Text="{Binding FormattedPercent, StringFormat='({0})'}" Foreground="#71717A" FontSize="11.5" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Duas colunas: Pastas (Drill-down) + Maiores Arquivos -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.2*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Coluna Pastas -->
+                <Border Grid.Column="0" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Maiores Subpastas (clique para abrir)" FontSize="13.5" FontWeight="SemiBold" Foreground="#FAFAFA" Margin="0,0,0,10" />
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                            <ItemsControl ItemsSource="{Binding DiskFolderRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.DrillDownFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,6"
+                                                HorizontalContentAlignment="Stretch" Cursor="Hand">
+                                            <Border Background="#202025" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10,8">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock Text="{Binding Name, StringFormat='📁 {0}'}" Foreground="#FAFAFA" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedSize}" Foreground="#A5B4FC" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                                    </DockPanel>
+                                                    <Grid Height="5" Margin="0,6,0,4">
+                                                        <Border Background="#27272A" CornerRadius="3" />
+                                                        <Border Background="#6366F1" CornerRadius="3" RenderTransformOrigin="0,0.5">
+                                                            <Border.RenderTransform>
+                                                                <ScaleTransform ScaleX="{Binding BarWidthRatio}" />
+                                                            </Border.RenderTransform>
+                                                        </Border>
+                                                    </Grid>
+                                                    <DockPanel>
+                                                        <TextBlock Text="{Binding Summary}" Foreground="#71717A" FontSize="11" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding FormattedPercent}" Foreground="#A1A1AA" FontSize="11" HorizontalAlignment="Right" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Coluna Maiores Arquivos -->
+                <Border Grid.Column="2" Background="#18181B" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Top Maiores Arquivos" FontSize="13.5" FontWeight="SemiBold" Foreground="#FAFAFA" Margin="0,0,0,10" />
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                            <ItemsControl ItemsSource="{Binding TopLargestFiles}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#202025" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="8" Padding="10,7" Margin="0,0,0,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding FileName}" Foreground="#FAFAFA" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding FullPath}" Foreground="#71717A" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding FullPath}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding FormattedSize}" Foreground="#34D399" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                                    <TextBlock Text="{Binding CategoryLabel}" Foreground="#A1A1AA" FontSize="11" HorizontalAlignment="Right" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
+
