@@ -1,0 +1,239 @@
+<UserControl x:Class="HardwareHub.Views.FormatBackupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Foreground="#FAFAFA">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="FlatButtonStyle" TargetType="Button">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SubTabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#202023" />
+            <Setter Property="Foreground" Value="#A1A1AA" />
+            <Setter Property="BorderBrush" Value="#2E2E33" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#27272A" />
+                                <Setter Property="Foreground" Value="#FAFAFA" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#312E81" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6366F1" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER FIXO -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                <TextBlock Text="Backup Antes de Formatar" FontSize="24" FontWeight="Bold" Foreground="#FAFAFA" TextWrapping="Wrap" />
+                <TextBlock Text="Exporte drivers e senhas de Wi-Fi em um pacote portátil e restaure tudo após reinstalar o Windows"
+                           FontSize="12.5" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="🔍 Varrer Discos"
+                        Command="{Binding ScanBackupsCommand}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#27272A" Foreground="#E4E4E7" BorderBrush="#3F3F46" BorderThickness="1"
+                        FontSize="12.5" FontWeight="SemiBold" Padding="14,9" Margin="0,0,8,0" />
+                <Button Content="📂 Abrir Pasta..."
+                        Click="OnOpenBackupFolderClick"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#4F46E5" Foreground="#FFFFFF"
+                        FontSize="12.5" FontWeight="SemiBold" Padding="14,9" />
+            </StackPanel>
+        </Grid>
+
+        <!-- SUB-ABAS -->
+        <WrapPanel Grid.Row="1" Margin="0,0,0,12">
+            <Button Content="📦 Criar Pacote de Backup"
+                    Style="{StaticResource SubTabButtonStyle}"
+                    Tag="{Binding IsCreateTabActive}"
+                    Command="{Binding SetSubTabCommand}" CommandParameter="Create" />
+            <Button Content="♻ Restaurar Pós-Formatação"
+                    Style="{StaticResource SubTabButtonStyle}"
+                    Tag="{Binding IsRestoreTabActive}"
+                    Command="{Binding SetSubTabCommand}" CommandParameter="Restore" />
+        </WrapPanel>
+
+        <!-- STATUS BANNER -->
+        <Border Grid.Row="2" Background="#1C1C21" BorderBrush="#2E2E36" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding StatusBanner}" Foreground="#D4D4D8" FontSize="12.5" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button Grid.Column="1" Content="✖ Cancelar"
+                        Command="{Binding CancelTaskCommand}"
+                        Visibility="{Binding IsBusyBackup, Converter={StaticResource BoolToVis}}"
+                        Style="{StaticResource FlatButtonStyle}"
+                        Background="#7F1D1D" Foreground="#FEE2E2"
+                        FontSize="12" FontWeight="SemiBold" Padding="12,6" Margin="10,0,0,0" />
+            </Grid>
+        </Border>
+
+        <!-- ABA 1: CRIAR -->
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0"
+                      Visibility="{Binding IsCreateTabActive, Converter={StaticResource BoolToVis}}">
+            <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="12" Padding="18">
+                <StackPanel>
+                    <TextBlock Text="1. Pasta de Destino (Pendrive, HD Externo ou 2º Disco)" FontSize="14.5" FontWeight="Bold" Foreground="#FAFAFA" />
+                    <Grid Margin="0,10,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding DestinationFolder, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#111114" Foreground="#FAFAFA" BorderBrush="#3F3F46" BorderThickness="1"
+                                 Padding="12,9" FontSize="13" Margin="0,0,10,0" />
+                        <Button Grid.Column="1" Content="📁 Escolher Pasta"
+                                Click="OnChooseDestinationClick"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#27272A" Foreground="#E4E4E7" BorderBrush="#3F3F46" BorderThickness="1"
+                                FontSize="12.5" FontWeight="SemiBold" Padding="14,9" />
+                    </Grid>
+
+                    <Border Background="#451A03" BorderBrush="#B45309" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14"
+                            Visibility="{Binding IsOnWindowsDriveWarning, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="⚠ Atenção: o caminho escolhido está na mesma unidade do Windows. Salve em um pendrive ou HD externo antes de formatar!"
+                                   Foreground="#FDE68A" FontSize="12.5" TextWrapping="Wrap" />
+                    </Border>
+
+                    <TextBlock Text="2. Itens para Incluir no Pacote" FontSize="14.5" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,4,0,8" />
+                    <CheckBox Content="Drivers instalados de terceiros (.inf via pnputil — requer administrador)"
+                              IsChecked="{Binding IncludeDrivers}" Foreground="#E4E4E7" FontSize="13" Margin="0,0,0,8" />
+                    <CheckBox Content="Perfis e senhas de redes Wi-Fi salvas (XML com key=clear)"
+                              IsChecked="{Binding IncludeWifi}" Foreground="#E4E4E7" FontSize="13" Margin="0,0,0,16" />
+
+                    <Button Content="💾 Gerar Pacote HUB-Backup Agora"
+                            Command="{Binding CreateBackupCommand}"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Background="#059669" Foreground="#FFFFFF"
+                            FontSize="13.5" FontWeight="Bold" Padding="18,11" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <!-- ABA 2: RESTAURAR -->
+        <Grid Grid.Row="3" Visibility="{Binding IsRestoreTabActive, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="12" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="Backups Encontrados" FontSize="14.5" FontWeight="Bold" Foreground="#FAFAFA" Margin="0,0,0,10" />
+                    <ListBox Grid.Row="1" ItemsSource="{Binding FoundBackups}" SelectedItem="{Binding SelectedBackup}"
+                             Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#202026" BorderBrush="#2E2E36" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="#FAFAFA" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding HardwareSummary}" FontSize="12" Foreground="#A1A1AA" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding ContentsSummary}" FontSize="12" Foreground="#A5B4FC" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="12" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0">
+                    <StackPanel Visibility="{Binding HasSelectedBackup, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding SelectedBackup.Title}" FontSize="16" FontWeight="Bold" Foreground="#FAFAFA" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectedBackup.HardwareSummary}" FontSize="12.5" Foreground="#A1A1AA" Margin="0,4,0,12" TextWrapping="Wrap" />
+
+                        <Border Background="#451A03" BorderBrush="#B45309" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                                Visibility="{Binding HasHardwareWarning, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding SelectedBackup.HardwareWarning}" Foreground="#FDE68A" FontSize="12" TextWrapping="Wrap" />
+                        </Border>
+
+                        <TextBlock Text="{Binding SelectedBackup.ContentsSummary}" FontSize="13" Foreground="#A5B4FC" Margin="0,0,0,14" />
+
+                        <Button Content="🧩 Restaurar Todos os Drivers"
+                                Command="{Binding RestoreDriversCommand}"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#4F46E5" Foreground="#FFFFFF"
+                                FontSize="13" FontWeight="SemiBold" Padding="14,10" Margin="0,0,0,10" HorizontalAlignment="Stretch" />
+
+                        <Button Content="📶 Restaurar Perfis e Senhas Wi-Fi"
+                                Command="{Binding RestoreWifiCommand}"
+                                Style="{StaticResource FlatButtonStyle}"
+                                Background="#059669" Foreground="#FFFFFF"
+                                FontSize="13" FontWeight="SemiBold" Padding="14,10" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
+
