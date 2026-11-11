@@ -1,0 +1,263 @@
+<UserControl x:Class="HardwareHub.Views.WhatsNewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="720" d:DesignWidth="880">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="DarkActionBtn" TargetType="Button">
+            <Setter Property="Background" Value="#27272A" />
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="BorderBrush" Value="#3F3F46" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3F3F46" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryIndigoBtn" TargetType="Button">
+            <Setter Property="Background" Value="#4F46E5" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4338CA" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- DataTemplate reutilizável para exibir um bloco de notas de versão -->
+        <DataTemplate x:Key="ReleaseNotesSectionsTemplate">
+            <StackPanel Margin="0,12,0,0">
+                <!-- Novidades -->
+                <StackPanel Visibility="{Binding HasNovidades, Converter={StaticResource BoolToVis}}" Margin="0,0,0,10">
+                    <Border Background="#064E3B" BorderBrush="#10B981" BorderThickness="1" CornerRadius="5"
+                            Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                        <TextBlock Text="✨ NOVIDADES" FontSize="11" FontWeight="Bold" Foreground="#6EE7B7" />
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Novidades}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Width="6" Height="6" Fill="#34D399" VerticalAlignment="Top" Margin="0,6,10,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#E4E4E7" FontSize="13" TextWrapping="Wrap" LineHeight="19" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Melhorias -->
+                <StackPanel Visibility="{Binding HasMelhorias, Converter={StaticResource BoolToVis}}" Margin="0,0,0,10">
+                    <Border Background="#1E3A8A" BorderBrush="#3B82F6" BorderThickness="1" CornerRadius="5"
+                            Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                        <TextBlock Text="⚡ MELHORIAS" FontSize="11" FontWeight="Bold" Foreground="#93C5FD" />
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Melhorias}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Width="6" Height="6" Fill="#60A5FA" VerticalAlignment="Top" Margin="0,6,10,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#E4E4E7" FontSize="13" TextWrapping="Wrap" LineHeight="19" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Correções -->
+                <StackPanel Visibility="{Binding HasCorrecoes, Converter={StaticResource BoolToVis}}" Margin="0,0,0,2">
+                    <Border Background="#451A03" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="5"
+                            Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                        <TextBlock Text="🛠 CORREÇÕES" FontSize="11" FontWeight="Bold" Foreground="#FCD34D" />
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Correcoes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Width="6" Height="6" Fill="#FBBF24" VerticalAlignment="Top" Margin="0,6,10,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#E4E4E7" FontSize="13" TextWrapping="Wrap" LineHeight="19" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Cabeçalho -->
+        <Grid Grid.Row="0" Margin="0,0,0,18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="✨ Novidades &amp; Changelog" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF" />
+                <TextBlock Text="Veja exatamente o que mudou antes de atualizar e acompanhe o histórico de versões do Hardware Hub"
+                           Foreground="#A1A1AA" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="8" Padding="10,7" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Instalada: " Foreground="#A1A1AA" FontSize="12" />
+                        <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#818CF8" FontWeight="Bold" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Button Style="{StaticResource DarkActionBtn}" Command="{Binding OpenReleasesPageCommand}"
+                        Content="🌐 GitHub Releases" Margin="0,0,8,0" />
+                <Button Style="{StaticResource PrimaryIndigoBtn}" Command="{Binding CheckForUpdatesCommand}"
+                        Content="{Binding CheckButtonText}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Conteúdo com Rolagem -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+            <StackPanel>
+
+                <!-- Mensagem de status de verificação -->
+                <Border Visibility="{Binding HasUpdateStatusMessage, Converter={StaticResource BoolToVis}}"
+                        Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="10"
+                        Padding="14,10" Margin="0,0,0,14">
+                    <TextBlock Text="{Binding UpdateStatusMessage}" Foreground="#D4D4D8" FontSize="12" TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Card de Prévia da Nova Versão Antes de Atualizar -->
+                <Border Visibility="{Binding HasPendingUpdate, Converter={StaticResource BoolToVis}}"
+                        Background="#1E1B4B" BorderBrush="#6366F1" BorderThickness="1" CornerRadius="12"
+                        Padding="18" Margin="0,0,0,18">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PendingVersionTitle}" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
+                                    <Border Background="#312E81" CornerRadius="6" Padding="8,3" Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding PendingUpdateSizeText}" FontSize="11" FontWeight="Bold" Foreground="#C7D2FE" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Prévia oficial da atualização no GitHub — revise abaixo antes de baixar o novo executável:"
+                                           Foreground="#C7D2FE" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Style="{StaticResource PrimaryIndigoBtn}"
+                                    Background="#6366F1"
+                                    Command="{Binding ApplyUpdateCommand}"
+                                    Content="{Binding ApplyUpdateButtonText}"
+                                    VerticalAlignment="Center" Margin="12,0,0,0" />
+                        </Grid>
+
+                        <ProgressBar Value="{Binding DownloadProgress, Mode=OneWay}" Maximum="100" Height="5" Margin="0,12,0,0"
+                                     Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVis}}"
+                                     Foreground="#818CF8" Background="#312E81" BorderThickness="0" />
+
+                        <ContentControl Content="{Binding PendingUpdateNotes}"
+                                        ContentTemplate="{StaticResource ReleaseNotesSectionsTemplate}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Lista de Versões Embutidas -->
+                <ItemsControl ItemsSource="{Binding EmbeddedVersions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1"
+                                    CornerRadius="12" Padding="18" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Background="#27272A" CornerRadius="6" Padding="10,4">
+                                                <TextBlock Text="{Binding VersionLabel}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            </Border>
+                                            <Border Visibility="{Binding HasBadge, Converter={StaticResource BoolToVis}}"
+                                                    Background="#312E81" BorderBrush="#6366F1" BorderThickness="1"
+                                                    CornerRadius="6" Padding="8,3" Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding BadgeText}" FontSize="10" FontWeight="Bold" Foreground="#C7D2FE" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Date}" Foreground="#71717A" FontSize="12" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <ContentControl Content="{Binding}"
+                                                    ContentTemplate="{StaticResource ReleaseNotesSectionsTemplate}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
+

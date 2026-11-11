@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:HardwareHub.ViewModels"
+        xmlns:views="clr-namespace:HardwareHub.Views"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
         Title="Hardware HUB • Monitor &amp; Central de Aplicativos"
@@ -28,26 +29,43 @@
             <Setter Property="Foreground" Value="#A1A1AA" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Padding" Value="10,7" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                CornerRadius="8" Padding="{TemplateBinding Padding}" Margin="0,2">
-                            <ContentPresenter />
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Margin="0,1.5">
+                            <Grid>
+                                <Border x:Name="ActiveBar" Width="3" Height="16" CornerRadius="2"
+                                        Background="#818CF8" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Margin="3,0,0,0" Visibility="Collapsed" />
+                                <ContentPresenter Margin="{TemplateBinding Padding}" />
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#27272A" />
+                                <Setter TargetName="border" Property="Background" Value="#202026" />
                                 <Setter Property="Foreground" Value="#FAFAFA" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1E2336" />
+                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <Style x:Key="NavCategoryHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#71717A" />
+            <Setter Property="Margin" Value="10,12,0,4" />
         </Style>
 
         <!-- Estilo para Cartões de Métricas -->
@@ -68,7 +86,7 @@
 
         <!-- ================= BARRA LATERAL (SIDEBAR) ================= -->
         <Border Grid.Column="0" Background="#121214" BorderBrush="#27272A" BorderThickness="0,0,1,0">
-            <Grid Margin="12,16,12,12">
+            <Grid Margin="12,14,10,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -76,7 +94,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Identidade do Hub -->
-                <StackPanel Grid.Row="0" Margin="4,0,0,24">
+                <StackPanel Grid.Row="0" Margin="4,0,0,14">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Image Source="Hardware_HUB.png" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                         <StackPanel VerticalAlignment="Center">
@@ -87,59 +105,205 @@
                     <TextBlock Text="Monitor &amp; Central de Apps" FontSize="11" Foreground="#71717A" Margin="0,6,0,0" />
                 </StackPanel>
 
-                <!-- Menu de Navegação -->
-                <StackPanel Grid.Row="1">
-                    <TextBlock Text="MENU PRINCIPAL" FontSize="11" FontWeight="Bold" Foreground="#52525B" Margin="8,0,0,8" />
+                <!-- Menu de Navegação (categorizado e rolável) -->
+                <ScrollViewer x:Name="SidebarNavScrollViewer" Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Margin="0,0,0,8" Padding="0,0,4,0">
+                    <StackPanel>
+                        <!-- Topo / Início -->
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsDashboardActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🏠" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Visão Geral" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📊" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Visão Geral" />
-                        </StackPanel>
-                    </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsPostFormatActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="PostFormat">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🚀" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Pós-Formatação" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Hardware">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚡" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Sensores &amp; Hardware" />
-                        </StackPanel>
-                    </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsAppsActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Apps">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📦" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Programas" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Disks">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="💾" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Saúde dos Discos" />
-                        </StackPanel>
-                    </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsProgramsManagerActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="ProgramsManager">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔄" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Atualizar &amp; Desinstalar" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Maintenance">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🛠️" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Manutenção &amp; Reparo" />
-                        </StackPanel>
-                    </Button>
+                        <!-- MEU PC -->
+                        <TextBlock Style="{StaticResource NavCategoryHeaderStyle}" Text="MEU PC" />
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="StressTest">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔥" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Estresse &amp; Bench (3D)" />
-                        </StackPanel>
-                    </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsHardwareActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Hardware">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚡" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Sensores &amp; Hardware" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Apps">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📦" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Baixar Programas" />
-                        </StackPanel>
-                    </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsDisksActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Disks">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💾" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Saúde dos Discos" />
+                            </StackPanel>
+                        </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}" Command="{Binding NavigateCommand}" CommandParameter="Settings">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📋" FontSize="16" Margin="0,0,12,0" />
-                            <TextBlock Text="Console / Logs" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsBatteryNavActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Diagnostics">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔋" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Bateria" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsNetworkOptimizerActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="NetworkOptimizer">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🌐" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Rede &amp; DNS" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsDriversUpdateActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="DriversUpdate">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🧩" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Drivers &amp; Update" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsWindows11Active}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Windows11">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🪟" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Windows 11 Check" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsHealthReportActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="HealthReport">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🩺" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Saúde &amp; Relatório" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- SISTEMA & LIMPEZA -->
+                        <TextBlock Style="{StaticResource NavCategoryHeaderStyle}" Text="SISTEMA &amp; LIMPEZA" />
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsStorageToolsActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="StorageTools">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🧹" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Limpeza &amp; Disco" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsOptimizationActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Optimization">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚙️" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Otimizações &amp; Tweaks" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsMaintenanceActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Maintenance">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🛠️" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Manutenção &amp; Reparo" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsStartupManagerActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="StartupManager">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🚦" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Inicialização" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsFormatBackupActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="FormatBackup">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💾" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Backup p/ Formatar" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsDiskOptimizationActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="DiskOptimization">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚡" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Otimizar Discos" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsRestorePointsActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="RestorePoints">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⏪" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Pontos de Restauração" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- TESTES & LOGS -->
+                        <TextBlock Style="{StaticResource NavCategoryHeaderStyle}" Text="TESTES" />
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsStressTestActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="StressTest">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔥" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Estresse &amp; Bench (3D)" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsPeripheralsNavActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Diagnostics:Peripherals">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⌨" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Periféricos &amp; Tela" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsFakeCapacityActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="FakeCapacity">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔌" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Capacidade Falsa" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsWhatsNewActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="WhatsNew">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="✨" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Novidades" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="{Binding IsSettingsActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📋" FontSize="15" Margin="2,0,11,0" />
+                                <TextBlock Text="Console / Logs" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Card de Informações do Sistema no rodapé da sidebar -->
                 <Border Grid.Row="2" Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="10" Padding="12">
@@ -150,11 +314,31 @@
                         </StackPanel>
                         <TextBlock Text="{Binding SystemInfo.OsName}" Foreground="#71717A" FontSize="11" TextTrimming="CharacterEllipsis" />
                         <Border Height="1" Background="#27272A" Margin="0,8,0,8" />
-                        <StackPanel>
-                            <TextBlock Text="Tempo de atividade (Uptime):" Foreground="#71717A" FontSize="10" />
-                            <TextBlock Text="{Binding SystemInfo.FormattedUptime}" ToolTip="{Binding SystemInfo.TaskMgrUptime}"
-                                       Foreground="#818CF8" FontSize="12" FontWeight="Bold" Margin="0,3,0,0" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Tempo de atividade (Uptime):" Foreground="#71717A" FontSize="10" />
+                                <TextBlock Text="{Binding SystemInfo.FormattedUptime}" ToolTip="{Binding SystemInfo.TaskMgrUptime}"
+                                           Foreground="#818CF8" FontSize="12" FontWeight="Bold" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Command="{Binding OpenWhatsNewCommand}"
+                                    ToolTip="Ver novidades da versão" Cursor="Hand"
+                                    Background="#27272A" BorderBrush="#3F3F46" BorderThickness="1"
+                                    Foreground="#C7D2FE" FontSize="10" FontWeight="Bold"
+                                    Padding="7,3" VerticalAlignment="Bottom">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding CurrentVersionLabel}" />
+                            </Button>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -195,18 +379,33 @@
                                              Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVis}}"
                                              Foreground="#818CF8" Background="#312E81" BorderThickness="0" />
                             </StackPanel>
-                            <Button Grid.Column="1" Command="{Binding ApplyUpdateCommand}" IsEnabled="{Binding CanApplyUpdate}"
-                                    Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" FontSize="12"
-                                    Padding="16,8" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="12,0,0,0">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter />
-                                        </Border>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <TextBlock Text="{Binding UpdateButtonText}" />
-                            </Button>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button Command="{Binding OpenWhatsNewCommand}"
+                                        Background="#312E81" Foreground="#E0E7FF" FontWeight="SemiBold" FontSize="12"
+                                        Padding="12,8" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,8,0"
+                                        ToolTip="Ver lista completa de novidades e correções antes de atualizar">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <TextBlock Text="📋 Ver novidades" />
+                                </Button>
+                                <Button Command="{Binding ApplyUpdateCommand}" IsEnabled="{Binding CanApplyUpdate}"
+                                        Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" FontSize="12"
+                                        Padding="16,8" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <TextBlock Text="{Binding UpdateButtonText}" />
+                                </Button>
+                            </StackPanel>
                             <Button Grid.Column="2" Command="{Binding DismissUpdateBannerCommand}"
                                     Background="Transparent" BorderThickness="0"
                                     Foreground="#A5B4FC" FontSize="14" Cursor="Hand"
@@ -359,10 +558,25 @@
                                 <ProgressBar Grid.Row="2" Value="{Binding Ram.UsagePercentage}" Maximum="100" Height="6" Margin="0,8,0,4"
                                              Foreground="#EC4899" Background="#27272A" BorderThickness="0" />
 
-                                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
-                                    <TextBlock Text="Livre: " FontSize="11" Foreground="#71717A" />
-                                    <TextBlock Text="{Binding Ram.FreeGb, StringFormat={}{0:F1} GB}" FontSize="11" Foreground="#A1A1AA" FontWeight="SemiBold" />
-                                </StackPanel>
+                                <Grid Grid.Row="3" Margin="0,4,0,0">
+                                    <Button Command="{Binding TrimRamQuickCommand}" HorizontalAlignment="Left"
+                                            Background="#27272A" Foreground="#F472B6" FontWeight="SemiBold" FontSize="11"
+                                            Padding="8,3" BorderThickness="0" Cursor="Hand"
+                                            ToolTip="Reduz o working set ocioso dos processos em segundo plano (EmptyWorkingSet)">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <TextBlock Text="🧹 Liberar RAM" />
+                                    </Button>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="Livre: " FontSize="11" Foreground="#71717A" />
+                                        <TextBlock Text="{Binding Ram.FreeGb, StringFormat={}{0:F1} GB}" FontSize="11" Foreground="#A1A1AA" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
                             </Grid>
                         </Border>
 
@@ -737,21 +951,23 @@
 
             <!-- ================= TELA 4: MANUTENÇÃO & REPARO DO WINDOWS ================= -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,8,0"
                           Visibility="{Binding IsMaintenanceActive, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
-                    <TextBlock Text="Central de Manutenção &amp; Reparo do Windows" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
-                    <TextBlock Text="Execute verificações e reparos com 1 clique ou clique em '🖥️ CMD' para acompanhar o progresso em tempo real numa janela externa" FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,20" />
+                    <TextBlock Text="Central de Manutenção &amp; Reparo do Windows" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" TextWrapping="Wrap" />
+                    <TextBlock Text="Execute verificações e reparos com 1 clique ou clique em '🖥️ CMD' para acompanhar o progresso em tempo real numa janela externa"
+                               FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,20" TextWrapping="Wrap" />
 
                     <ItemsControl ItemsSource="{Binding MaintenanceTools}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel />
+                                <UniformGrid Columns="2" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="12"
-                                        Width="380" Margin="0,0,14,14" Padding="18">
+                                        Margin="0,0,12,12" Padding="18">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -827,347 +1043,10 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ================= TELA 5: BAIXAR PROGRAMAS (HUB CENTRAL) ================= -->
+            <!-- ================= TELA 5: PROGRAMAS (ESTILO HUB PRO) ================= -->
             <Grid Visibility="{Binding IsAppsActive, Converter={StaticResource BoolToVis}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- Header e Verificação -->
-                <Grid Grid.Row="0" Margin="0,0,0,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
-                        <TextBlock Text="Central de Programas" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
-                        <TextBlock Text="Instale os principais navegadores, ferramentas e jogos de forma silenciosa e segura" 
-                                   FontSize="13" Foreground="#A1A1AA" Margin="0,4,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Botão Importar Lista Winget / .ubundle -->
-                        <Button Command="{Binding ImportWingetFileCommand}"
-                                ToolTip="Importar pacotes de programas (.ubundle do UniGetUI/WingetUI, .json do Winget, ou .txt)"
-                                Background="#312E81" Foreground="#C7D2FE" FontWeight="SemiBold" FontSize="12"
-                                Padding="14,9" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="borderImp" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="borderImp" Property="Background" Value="#4338CA" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📥 " Margin="0,0,4,0" />
-                                <TextBlock Text="Importar Lista / .ubundle" />
-                            </StackPanel>
-                        </Button>
-
-                        <!-- Botão Instalar Todos os Importados em Lote -->
-                        <Button Command="{Binding InstallAllImportedCommand}"
-                                Visibility="{Binding HasImportedApps, Converter={StaticResource BoolToVis}}"
-                                IsEnabled="{Binding CanBatchInstall}"
-                                Background="#059669" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="12"
-                                Padding="14,9" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="borderBatch" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="borderBatch" Property="Background" Value="#10B981" />
-                                        </Trigger>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter TargetName="borderBatch" Property="Background" Value="#27272A" />
-                                            <Setter Property="Foreground" Value="#71717A" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚡ " Margin="0,0,4,0" />
-                                <TextBlock Text="Instalar Todos da Lista" />
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding RefreshSoftwareStatusCommand}"
-                                Background="#27272A" Foreground="#E4E4E7" FontWeight="SemiBold" FontSize="12"
-                                Padding="16,9" BorderThickness="0" Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="border" Property="Background" Value="#3F3F46" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <TextBlock Text="{Binding RefreshButtonText}" />
-                        </Button>
-                    </StackPanel>
-                </Grid>
-
-                <!-- Linha 1: Campo de Busca Moderno com Botão de Busca no Winget Global -->
-                <Grid Grid.Row="1" Margin="0,0,0,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <Border Grid.Row="0" Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="10" Padding="14,4">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="🔍" FontSize="14" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <TextBox Grid.Column="1" Text="{Binding SearchFilter, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" Foreground="#FFFFFF" BorderThickness="0"
-                                     FontSize="13" VerticalContentAlignment="Center" CaretBrush="#FFFFFF" Padding="0,6">
-                                <TextBox.InputBindings>
-                                    <KeyBinding Key="Return" Command="{Binding SearchOnlineCommand}" />
-                                </TextBox.InputBindings>
-                            </TextBox>
-                            <TextBlock Grid.Column="1" Text="Pesquisar por nome do programa (ex: WhatsApp, Telegram, GIMP, Blender)..."
-                                       FontSize="13" Foreground="#52525B" VerticalAlignment="Center" IsHitTestVisible="False">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SearchFilter}" Value="">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <Button Grid.Column="2" Command="{Binding SearchOnlineCommand}"
-                                    Background="#4F46E5" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="11"
-                                    Padding="12,6" BorderThickness="0" Cursor="Hand" Margin="6,2,0,2">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="sBtn" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="sBtn" Property="Background" Value="#6366F1" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <TextBlock Text="🌐 Buscar no Winget" />
-                            </Button>
-                        </Grid>
-                    </Border>
-
-                    <!-- Barra de progresso para busca online -->
-                    <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="3" Background="#27272A" Foreground="#6366F1" BorderThickness="0"
-                                 Visibility="{Binding IsSearchingOnline, Converter={StaticResource BoolToVis}}" Margin="0,4,0,0" />
-                </Grid>
-
-                <!-- Linha 2: Filtros de Categoria em WrapPanel Interativo com Seleção Direta -->
-                <ListBox Grid.Row="2" ItemsSource="{Binding Categories}"
-                         SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
-                         Background="Transparent" BorderThickness="0" Margin="0,0,0,16">
-                    <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border x:Name="pillBorder" Background="#202023" BorderBrush="#2E2E33" BorderThickness="1"
-                                                CornerRadius="16" Padding="14,6" Margin="0,0,8,8" Cursor="Hand">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="pillBorder" Property="Background" Value="#4F46E5" />
-                                                <Setter TargetName="pillBorder" Property="BorderBrush" Value="#6366F1" />
-                                                <Setter Property="Foreground" Value="#FFFFFF" />
-                                            </Trigger>
-                                            <Trigger Property="IsSelected" Value="False">
-                                                <Setter Property="Foreground" Value="#A1A1AA" />
-                                            </Trigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="pillBorder" Property="BorderBrush" Value="#6366F1" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="FontSize" Value="12" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                </ListBox>
-
-                <!-- Linha 3: Grid Balanceado ou Estado Vazio com Busca Global -->
-                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <!-- Card quando nenhum programa local for encontrado -->
-                        <Border Background="#202023" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="12" Padding="28" Margin="0,0,12,16"
-                                Visibility="{Binding HasNoLocalResults, Converter={StaticResource BoolToVis}}">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock Text="🌐" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10" />
-                                <TextBlock Text="Nenhum programa no catálogo pré-carregado" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
-                                <TextBlock Text="Deseja pesquisar entre os milhares de programas oficiais disponíveis no catálogo mundial do Windows (Winget)?" 
-                                           FontSize="13" Foreground="#A1A1AA" HorizontalAlignment="Center" Margin="0,6,0,18" TextWrapping="Wrap" TextAlignment="Center" />
-                                <Button Command="{Binding SearchOnlineCommand}"
-                                        Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" FontSize="13"
-                                        Padding="20,10" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Center">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="b" Property="Background" Value="#6366F1" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="🔍 Pesquisar " />
-                                        <TextBlock Text="{Binding SearchFilter, StringFormat='&quot;{0}&quot;'}" FontWeight="Bold" />
-                                        <TextBlock Text=" no Winget Online" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-
-                        <ItemsControl ItemsSource="{Binding FilteredSoftware}" Margin="0,0,6,0">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Columns="2" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="#202023" BorderBrush="#2E2E33" BorderThickness="1" CornerRadius="12"
-                                        Margin="0,0,12,12" Padding="16">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-
-                                        <!-- Topo do Card: Ícone, Nome, Publisher e Categoria -->
-                                        <Grid Grid.Row="0" Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <Border Grid.Column="0" Background="#27272A" CornerRadius="8" Width="38" Height="38" Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding AppEmoji}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Publisher}" FontSize="11" Foreground="#71717A" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                                            </StackPanel>
-
-                                            <Border Grid.Column="2" Background="#27272A" CornerRadius="4" Padding="8,3" VerticalAlignment="Top">
-                                                <TextBlock Text="{Binding Category}" FontSize="10" FontWeight="SemiBold" Foreground="#A1A1AA" />
-                                            </Border>
-                                        </Grid>
-
-                                        <!-- Descrição -->
-                                        <TextBlock Grid.Row="1" Text="{Binding Description}" FontSize="12" Foreground="#A1A1AA"
-                                                   TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="52" LineHeight="17" Margin="0,0,0,12" />
-
-                                        <!-- Rodapé: Status e Botão de Ação -->
-                                        <StackPanel Grid.Row="2">
-                                            <!-- Indicador de Progresso (quando instalando) -->
-                                            <ProgressBar IsIndeterminate="{Binding IsIndeterminate}" Value="{Binding ProgressValue}" Maximum="100"
-                                                         Height="4" Margin="0,0,0,8" Background="#27272A" Foreground="#6366F1" BorderThickness="0"
-                                                         Visibility="{Binding IsInstalling, Converter={StaticResource BoolToVis}}" />
-
-                                            <Grid>
-                                                <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
-
-                                                <Button HorizontalAlignment="Right" Padding="16,7" FontSize="12" FontWeight="SemiBold"
-                                                        Command="{Binding DataContext.InstallAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}"
-                                                        IsEnabled="{Binding CanInstall}">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button">
-                                                            <Setter Property="Background" Value="#4F46E5" />
-                                                            <Setter Property="Foreground" Value="#FFFFFF" />
-                                                            <Setter Property="BorderThickness" Value="0" />
-                                                            <Setter Property="Cursor" Value="Hand" />
-                                                            <Setter Property="Template">
-                                                                <Setter.Value>
-                                                                    <ControlTemplate TargetType="Button">
-                                                                        <Border x:Name="btnBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                        </Border>
-                                                                        <ControlTemplate.Triggers>
-                                                                            <Trigger Property="IsEnabled" Value="False">
-                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#27272A" />
-                                                                                <Setter Property="Foreground" Value="#71717A" />
-                                                                                <Setter Property="Cursor" Value="Arrow" />
-                                                                            </Trigger>
-                                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                                <Setter TargetName="btnBorder" Property="Background" Value="#6366F1" />
-                                                                            </Trigger>
-                                                                        </ControlTemplate.Triggers>
-                                                                    </ControlTemplate>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Style>
-                                                    </Button.Style>
-                                                    <TextBlock>
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsInstalled}" Value="True">
-                                                                        <Setter Property="Text" Value="✓ Instalado" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding IsInstalling}" Value="True">
-                                                                        <Setter Property="Text" Value="Baixando..." />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding CanInstall}" Value="True">
-                                                                        <Setter Property="Text" Value="Baixar ➔" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Button>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
+                <views:AppsCatalogView DataContext="{Binding AppsCatalog}" />
+            </Grid>
 
             <!-- ================= TELA: TESTE DE ESTRESSE & BENCHMARK 3D ================= -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -1525,6 +1404,66 @@
                              IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
                 </Border>
             </Grid>
+
+            <!-- ================= TELA 8: OTIMIZAÇÕES, TWEAKS & BLOATWARE ================= -->
+            <views:OptimizationView DataContext="{Binding Optimization}"
+                                    Visibility="{Binding DataContext.IsOptimizationActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 9: PÓS-FORMATAÇÃO ================= -->
+            <views:PostFormatView DataContext="{Binding Optimization}"
+                                  Visibility="{Binding DataContext.IsPostFormatActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 10: ATUALIZAÇÕES & DESINSTALADOR PROFUNDO ================= -->
+            <views:ProgramsManagerView DataContext="{Binding ProgramsStartup}"
+                                       Visibility="{Binding DataContext.IsProgramsManagerActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 11: GERENCIADOR DE INICIALIZAÇÃO ================= -->
+            <views:StartupManagerView DataContext="{Binding ProgramsStartup}"
+                                      Visibility="{Binding DataContext.IsStartupManagerActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 12: LIMPEZA SEGURA, DUPLICADOS & MAPA DE DISCO ================= -->
+            <views:StorageToolsView DataContext="{Binding StorageTools}"
+                                    Visibility="{Binding DataContext.IsStorageToolsActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 13: OTIMIZADOR DE REDE & DNS ================= -->
+            <views:NetworkOptimizerView DataContext="{Binding NetworkOptimizer}"
+                                        Visibility="{Binding DataContext.IsNetworkOptimizerActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 14: DIAGNÓSTICO DE BATERIA & PERIFÉRICOS ================= -->
+            <views:DiagnosticsView DataContext="{Binding Diagnostics}"
+                                   Visibility="{Binding DataContext.IsDiagnosticsActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 15: DRIVERS & WINDOWS UPDATE ================= -->
+            <views:DriversUpdateView DataContext="{Binding DriversUpdate}"
+                                     Visibility="{Binding DataContext.IsDriversUpdateActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 16: BACKUP ANTES DE FORMATAR ================= -->
+            <views:FormatBackupView DataContext="{Binding FormatBackup}"
+                                    Visibility="{Binding DataContext.IsFormatBackupActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 17: DETECTOR DE CAPACIDADE FALSA ================= -->
+            <views:FakeCapacityView DataContext="{Binding FakeCapacity}"
+                                    Visibility="{Binding DataContext.IsFakeCapacityActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 18: COMPATIBILIDADE WINDOWS 11 ================= -->
+            <views:Windows11View DataContext="{Binding Windows11}"
+                                 Visibility="{Binding DataContext.IsWindows11Active, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 19: PONTOS DE RESTAURAÇÃO ================= -->
+            <views:RestorePointsView DataContext="{Binding RestorePoints}"
+                                     Visibility="{Binding DataContext.IsRestorePointsActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 20: OTIMIZAÇÃO & TRIM DE DISCOS ================= -->
+            <views:DiskOptimizationView DataContext="{Binding DiskOptimization}"
+                                        Visibility="{Binding DataContext.IsDiskOptimizationActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 21: SAÚDE DO WINDOWS, INVENTÁRIO & RELATÓRIO ================= -->
+            <views:WindowsHealthReportView DataContext="{Binding HealthReport}"
+                                             Visibility="{Binding DataContext.IsHealthReportActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
+
+            <!-- ================= TELA 22: NOVIDADES & CHANGELOG ================= -->
+            <views:WhatsNewView DataContext="{Binding WhatsNew}"
+                                Visibility="{Binding DataContext.IsWhatsNewActive, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}" />
 
         </Grid>
     </Grid>

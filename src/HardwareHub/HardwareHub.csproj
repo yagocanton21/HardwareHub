@@ -9,18 +9,29 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.0.25</Version>
-    <AssemblyVersion>1.0.25.0</AssemblyVersion>
-    <FileVersion>1.0.25.0</FileVersion>
+    <Version>1.0.26</Version>
+    <AssemblyVersion>1.0.26.0</AssemblyVersion>
+    <FileVersion>1.0.26.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Hardware_HUB.ico" />
     <Resource Include="Hardware_HUB.png" />
+    <Resource Include="Resources\AppIcons\*.png" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\PawnIO_setup.exe" />
+    <EmbeddedResource Include="Resources\Data\tweaks.json" />
+    <EmbeddedResource Include="Resources\Data\bloatware.json" />
+    <EmbeddedResource Include="Resources\Data\cleanup.json" />
+    <EmbeddedResource Include="Resources\Data\inicializacao.json" />
+    <EmbeddedResource Include="Resources\Data\posformatacao.json" />
+    <EmbeddedResource Include="Resources\Data\novidades.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HardwareHub.Tests" />
   </ItemGroup>
 
   <ItemGroup>

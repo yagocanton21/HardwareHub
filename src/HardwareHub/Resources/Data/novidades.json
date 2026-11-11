@@ -1,0 +1,36 @@
+[
+  {
+    "versao": "1.0.26",
+    "data": "11/11/2026",
+    "novidades": [
+      "Nova tela ✨ Novidades (Changelog) no menu lateral e prévia das mudanças antes de atualizar pelo botão Ver novidades",
+      "Janela automática 'O que há de novo' exibida na primeira abertura após atualizar o HardwareHub.exe",
+      "Catálogo Programas repaginado com 58 ícones oficiais, busca integrada e motor de instalação via Winget e Microsoft Store",
+      "Suíte completa de otimização: Otimizações & Tweaks, Desinstalação de Bloatware, Privacidade e Pós-Formatação com prévia dos aplicativos de cada Kit",
+      "Módulos de diagnóstico e manutenção: Saúde do Windows, Inventário & Relatório Técnico, Verificador Windows 11, Teste de Capacidade Real (Pendrive), Backup de Drivers e Pontos de Restauração"
+    ],
+    "melhorias": [
+      "Indicadores nos perfis de Pós-Formatação exibindo exatamente quantos e quais aplicativos compõem cada Kit",
+      "Monitoramento S.M.A.R.T. avançado, detalhes de módulos RAM (MT/s) e VRAM dedicada, além de limpeza segura de memória (Trim RAM)",
+      "Acesso rápido às notas da versão pelo rodapé da barra lateral e checagem direta no GitHub Releases"
+    ],
+    "correcoes": [
+      "Correção na leitura de VRAM acima de 4 GB em sistemas modernos",
+      "Sincronização aprimorada de status de aplicativos instalados via Winget e tratamento de permissões na exportação de drivers"
+    ]
+  },
+  {
+    "versao": "1.0.25",
+    "data": "08/11/2026",
+    "novidades": [
+      "Driver térmico PawnIO embutido offline com instalação automática assistida",
+      "Botão para dispensar temporariamente o aviso de nova atualização no painel"
+    ],
+    "melhorias": [
+      "Aprimoramento na detecção e leitura de temperatura da CPU em placas-mãe modernas"
+    ],
+    "correcoes": [
+      "Correções de estabilidade em sensores térmicos e no fluxo de atualização automática"
+    ]
+  }
+]

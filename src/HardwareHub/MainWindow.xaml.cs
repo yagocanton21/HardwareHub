@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using HardwareHub.ViewModels;
+using HardwareHub.Views;
 
 namespace HardwareHub
 {
@@ -14,6 +17,7 @@ namespace HardwareHub
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
         private const int DWMWA_CAPTION_COLOR = 35;
         private const int DWMWA_TEXT_COLOR = 36;
+        private bool _checkedPostUpdate = false;
 
         public MainWindow()
         {
@@ -36,10 +40,43 @@ namespace HardwareHub
                 DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ref whiteTextColor, sizeof(int));
             };
 
+            ContentRendered += OnMainContentRendered;
+
             Closing += (s, e) =>
             {
                 (DataContext as IDisposable)?.Dispose();
             };
+        }
+
+        private void OnMainContentRendered(object? sender, EventArgs e)
+        {
+            if (_checkedPostUpdate)
+                return;
+
+            _checkedPostUpdate = true;
+
+            if (!IsVisible || IsRunningUnderTestRunner())
+                return;
+
+            if (DataContext is not MainViewModel vm)
+                return;
+
+            var result = vm.WhatsNew.EvaluatePostUpdate();
+            if (result.WasUpdated)
+            {
+                var dialog = new WhatsNewWindow(result) { Owner = this };
+                dialog.Show();
+            }
+        }
+
+        private static bool IsRunningUnderTestRunner()
+        {
+            string friendly = AppDomain.CurrentDomain.FriendlyName ?? string.Empty;
+            if (friendly.Contains("testhost", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .Any(a => string.Equals(a.GetName().Name, "xunit.core", StringComparison.OrdinalIgnoreCase));
         }
     }
 }

@@ -1,0 +1,109 @@
+<Window x:Class="HardwareHub.Views.WhatsNewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Novidades do Hardware Hub"
+        Width="640" Height="600" MinWidth="540" MinHeight="440"
+        WindowStartupLocation="CenterOwner"
+        Background="#111114" Foreground="#F4F4F5"
+        ShowInTaskbar="False">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Topo -->
+        <Border Grid.Row="0" Background="#1E1B4B" BorderBrush="#6366F1" BorderThickness="1"
+                CornerRadius="12" Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock x:Name="TitleHeaderText" Text="🚀 Hardware Hub atualizado!" FontSize="19" FontWeight="Bold" Foreground="#FFFFFF" />
+                <TextBlock x:Name="SubtitleHeaderText" Text="Confira os novos recursos, melhorias e correções desta atualização:"
+                           Foreground="#C7D2FE" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Lista de Versões Novas -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <ItemsControl x:Name="VersionsItemsControl">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1"
+                                CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Background="#27272A" CornerRadius="6" Padding="9,3" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding VersionLabel}" FontWeight="Bold" FontSize="13" Foreground="#FFFFFF" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="{Binding Date}" Foreground="#71717A" FontSize="12" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <!-- Novidades -->
+                                <StackPanel Visibility="{Binding HasNovidades, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                                    <TextBlock Text="✨ NOVIDADES" FontSize="11" FontWeight="Bold" Foreground="#34D399" Margin="0,0,0,5" />
+                                    <ItemsControl ItemsSource="{Binding Novidades}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StringFormat='• {0}'}" Foreground="#E4E4E7" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Melhorias -->
+                                <StackPanel Visibility="{Binding HasMelhorias, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                                    <TextBlock Text="⚡ MELHORIAS" FontSize="11" FontWeight="Bold" Foreground="#60A5FA" Margin="0,0,0,5" />
+                                    <ItemsControl ItemsSource="{Binding Melhorias}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StringFormat='• {0}'}" Foreground="#E4E4E7" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Correções -->
+                                <StackPanel Visibility="{Binding HasCorrecoes, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="🛠 CORREÇÕES" FontSize="11" FontWeight="Bold" Foreground="#FBBF24" Margin="0,0,0,5" />
+                                    <ItemsControl ItemsSource="{Binding Correcoes}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StringFormat='• {0}'}" Foreground="#E4E4E7" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Rodapé -->
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" Content="🌐 Ver no GitHub" Click="OnOpenGitHubClick"
+                    Background="#27272A" Foreground="#E4E4E7" BorderBrush="#3F3F46" BorderThickness="1"
+                    Padding="12,8" FontSize="12" Cursor="Hand" />
+
+            <Button Grid.Column="2" Content="Entendi, continuar" Click="OnCloseClick" IsDefault="True"
+                    Background="#4F46E5" Foreground="#FFFFFF" BorderThickness="0"
+                    Padding="18,8" FontSize="12" FontWeight="Bold" Cursor="Hand" />
+        </Grid>
+    </Grid>
+</Window>
+

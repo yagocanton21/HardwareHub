@@ -14,6 +14,7 @@ namespace HardwareHub.ViewModels
     {
         private readonly Action<object?> _execute;
         private readonly Predicate<object?>? _canExecute;
+        private event EventHandler? _canExecuteChanged;
 
         public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute = null)
         {
@@ -23,11 +24,22 @@ namespace HardwareHub.ViewModels
 
         public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
         public void Execute(object? parameter) => _execute(parameter);
+
         public event EventHandler? CanExecuteChanged
         {
-            add => CommandManager.RequerySuggested += value;
-            remove => CommandManager.RequerySuggested -= value;
+            add
+            {
+                _canExecuteChanged += value;
+                CommandManager.RequerySuggested += value;
+            }
+            remove
+            {
+                _canExecuteChanged -= value;
+                CommandManager.RequerySuggested -= value;
+            }
         }
+
+        public void RaiseCanExecuteChanged() => _canExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public class MainViewModel : INotifyPropertyChanged, IDisposable
@@ -85,9 +97,49 @@ namespace HardwareHub.ViewModels
                     OnPropertyChanged(nameof(IsHardwareActive));
                     OnPropertyChanged(nameof(IsDisksActive));
                     OnPropertyChanged(nameof(IsMaintenanceActive));
+                    OnPropertyChanged(nameof(IsOptimizationActive));
+                    OnPropertyChanged(nameof(IsPostFormatActive));
                     OnPropertyChanged(nameof(IsAppsActive));
+                    OnPropertyChanged(nameof(IsProgramsManagerActive));
+                    OnPropertyChanged(nameof(IsStartupManagerActive));
+                    OnPropertyChanged(nameof(IsStorageToolsActive));
+                    OnPropertyChanged(nameof(IsNetworkOptimizerActive));
+                    OnPropertyChanged(nameof(IsDiagnosticsActive));
+                    OnPropertyChanged(nameof(IsBatteryNavActive));
+                    OnPropertyChanged(nameof(IsPeripheralsNavActive));
+                    OnPropertyChanged(nameof(IsDriversUpdateActive));
+                    OnPropertyChanged(nameof(IsFormatBackupActive));
+                    OnPropertyChanged(nameof(IsFakeCapacityActive));
+                    OnPropertyChanged(nameof(IsWindows11Active));
+                    OnPropertyChanged(nameof(IsRestorePointsActive));
+                    OnPropertyChanged(nameof(IsDiskOptimizationActive));
+                    OnPropertyChanged(nameof(IsHealthReportActive));
+                    OnPropertyChanged(nameof(IsWhatsNewActive));
                     OnPropertyChanged(nameof(IsSettingsActive));
                     OnPropertyChanged(nameof(IsStressTestActive));
+
+                    if (value == "ProgramsManager")
+                        ProgramsStartup?.EnsureProgramsLoaded();
+                    else if (value == "StartupManager")
+                        ProgramsStartup?.EnsureStartupLoaded();
+                    else if (value == "StorageTools")
+                        StorageTools?.EnsureLoaded();
+                    else if (value == "NetworkOptimizer")
+                        NetworkOptimizer?.EnsureLoaded();
+                    else if (value == "Diagnostics" && Diagnostics?.IsBatteryTabActive == true)
+                        Diagnostics.EnsureBatteryLoaded();
+                    else if (value == "DriversUpdate")
+                        DriversUpdate?.EnsureLoaded();
+                    else if (value == "FakeCapacity")
+                        FakeCapacity?.EnsureLoaded();
+                    else if (value == "Windows11")
+                        Windows11?.EnsureLoaded();
+                    else if (value == "RestorePoints")
+                        RestorePoints?.EnsureLoaded();
+                    else if (value == "DiskOptimization")
+                        DiskOptimization?.EnsureLoaded();
+                    else if (value == "HealthReport")
+                        _ = HealthReport?.EnsureInitializedAsync();
                 }
             }
         }
@@ -96,9 +148,42 @@ namespace HardwareHub.ViewModels
         public bool IsHardwareActive => CurrentSection == "Hardware";
         public bool IsDisksActive => CurrentSection == "Disks";
         public bool IsMaintenanceActive => CurrentSection == "Maintenance";
+        public bool IsOptimizationActive => CurrentSection == "Optimization";
+        public bool IsPostFormatActive => CurrentSection == "PostFormat";
         public bool IsAppsActive => CurrentSection == "Apps";
+        public bool IsProgramsManagerActive => CurrentSection == "ProgramsManager";
+        public bool IsStartupManagerActive => CurrentSection == "StartupManager";
+        public bool IsStorageToolsActive => CurrentSection == "StorageTools";
+        public bool IsNetworkOptimizerActive => CurrentSection == "NetworkOptimizer";
+        public bool IsDiagnosticsActive => CurrentSection == "Diagnostics";
+        public bool IsBatteryNavActive => IsDiagnosticsActive && Diagnostics.IsBatteryTabActive;
+        public bool IsPeripheralsNavActive => IsDiagnosticsActive && !Diagnostics.IsBatteryTabActive;
+        public bool IsDriversUpdateActive => CurrentSection == "DriversUpdate";
+        public bool IsFormatBackupActive => CurrentSection == "FormatBackup";
+        public bool IsFakeCapacityActive => CurrentSection == "FakeCapacity";
+        public bool IsWindows11Active => CurrentSection == "Windows11";
+        public bool IsRestorePointsActive => CurrentSection == "RestorePoints";
+        public bool IsDiskOptimizationActive => CurrentSection == "DiskOptimization";
+        public bool IsHealthReportActive => CurrentSection == "HealthReport";
+        public bool IsWhatsNewActive => CurrentSection == "WhatsNew";
         public bool IsSettingsActive => CurrentSection == "Settings";
         public bool IsStressTestActive => CurrentSection == "StressTest";
+
+        public OptimizationViewModel Optimization { get; }
+        public ProgramsStartupViewModel ProgramsStartup { get; }
+        public StorageToolsViewModel StorageTools { get; }
+        public NetworkOptimizerViewModel NetworkOptimizer { get; }
+        public DiagnosticsViewModel Diagnostics { get; }
+        public DriversUpdateViewModel DriversUpdate { get; }
+        public FormatBackupViewModel FormatBackup { get; }
+        public FakeCapacityViewModel FakeCapacity { get; }
+        public Windows11ViewModel Windows11 { get; }
+        public RestorePointsViewModel RestorePoints { get; }
+        public DiskOptimizationViewModel DiskOptimization { get; }
+        public WindowsHealthReportViewModel HealthReport { get; }
+        public AppsCatalogViewModel AppsCatalog { get; }
+        public WhatsNewViewModel WhatsNew { get; }
+        public string CurrentVersionLabel => WhatsNew.CurrentVersionLabel;
 
         public CpuMetrics Cpu
         {
@@ -217,6 +302,7 @@ namespace HardwareHub.ViewModels
                 OnPropertyChanged(nameof(LatestVersionText));
                 OnPropertyChanged(nameof(UpdateChangelogSummary));
                 OnPropertyChanged(nameof(CanApplyUpdate));
+                WhatsNew?.SyncPendingUpdate(_availableUpdate, _isDownloadingUpdate, _updateDownloadProgress, _updateButtonText);
             }
         }
 
@@ -235,6 +321,7 @@ namespace HardwareHub.ViewModels
                     _isDownloadingUpdate = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(CanApplyUpdate));
+                    WhatsNew?.SyncPendingUpdate(_availableUpdate, _isDownloadingUpdate, _updateDownloadProgress, _updateButtonText);
                 }
             }
         }
@@ -248,6 +335,7 @@ namespace HardwareHub.ViewModels
                 {
                     _updateDownloadProgress = value;
                     OnPropertyChanged();
+                    WhatsNew?.SyncPendingUpdate(_availableUpdate, _isDownloadingUpdate, _updateDownloadProgress, _updateButtonText);
                 }
             }
         }
@@ -261,6 +349,7 @@ namespace HardwareHub.ViewModels
                 {
                     _updateButtonText = value;
                     OnPropertyChanged();
+                    WhatsNew?.SyncPendingUpdate(_availableUpdate, _isDownloadingUpdate, _updateDownloadProgress, _updateButtonText);
                 }
             }
         }
@@ -295,6 +384,7 @@ namespace HardwareHub.ViewModels
         public ICommand CheckForUpdatesCommand { get; }
         public ICommand ApplyUpdateCommand { get; }
         public ICommand DismissUpdateBannerCommand { get; }
+        public ICommand OpenWhatsNewCommand { get; }
         public ICommand InstallPawnIOCommand { get; }
         public ICommand DismissPawnBannerCommand { get; }
         public ICommand RefreshDisksCommand { get; }
@@ -302,6 +392,7 @@ namespace HardwareHub.ViewModels
         public ICommand RunMaintenanceCommand { get; }
         public ICommand RunMaintenanceInCmdCommand { get; }
         public ICommand SearchOnlineCommand { get; }
+        public ICommand TrimRamQuickCommand { get; }
 
         public ICommand StartCpuStressCommand { get; }
         public ICommand StartCpuBenchmarkCommand { get; }
@@ -349,6 +440,78 @@ namespace HardwareHub.ViewModels
             _stressTestService = new StressTestService();
             _gpuRenderService = new GpuRenderService();
             _updateService = new UpdateService();
+            Action<string> logOnUi = msg =>
+            {
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher != null && !dispatcher.CheckAccess())
+                    dispatcher.Invoke(() => AppendLog(msg));
+                else
+                    AppendLog(msg);
+            };
+
+            Optimization = new OptimizationViewModel(
+                softwareService: _softwareService,
+                logCallback: logOnUi);
+
+            ProgramsStartup = new ProgramsStartupViewModel(
+                logCallback: logOnUi);
+
+            StorageTools = new StorageToolsViewModel(
+                logCallback: logOnUi);
+
+            NetworkOptimizer = new NetworkOptimizerViewModel(
+                logCallback: logOnUi);
+
+            Diagnostics = new DiagnosticsViewModel(
+                logCallback: logOnUi);
+
+            DriversUpdate = new DriversUpdateViewModel(
+                logCallback: logOnUi);
+
+            FormatBackup = new FormatBackupViewModel(
+                logCallback: logOnUi);
+
+            FakeCapacity = new FakeCapacityViewModel(
+                logCallback: logOnUi);
+
+            Windows11 = new Windows11ViewModel(
+                logCallback: logOnUi);
+
+            RestorePoints = new RestorePointsViewModel(
+                logCallback: logOnUi);
+
+            DiskOptimization = new DiskOptimizationViewModel(
+                logCallback: logOnUi);
+
+            HealthReport = new WindowsHealthReportViewModel(
+                logCallback: logOnUi,
+                navigateCallback: target => CurrentSection = target);
+
+            AppsCatalog = new AppsCatalogViewModel(
+                softwareService: _softwareService,
+                logCallback: logOnUi);
+
+            WhatsNew = new WhatsNewViewModel(
+                checkUpdatesAsync: () => CheckForUpdatesAsync(silent: false),
+                applyUpdateAsync: ApplyUpdateAsync,
+                logCallback: logOnUi);
+
+            OpenWhatsNewCommand = new RelayCommand(_ => CurrentSection = "WhatsNew");
+
+            TrimRamQuickCommand = new RelayCommand(async _ =>
+            {
+                await HealthReport.TrimRamAsync();
+                UpdateHardwareMetrics();
+            });
+
+            Diagnostics.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(DiagnosticsViewModel.ActiveSubTab))
+                {
+                    OnPropertyChanged(nameof(IsBatteryNavActive));
+                    OnPropertyChanged(nameof(IsPeripheralsNavActive));
+                }
+            };
 
             _stressTestService.StateChanged += () =>
             {
@@ -464,8 +627,24 @@ namespace HardwareHub.ViewModels
 
             NavigateCommand = new RelayCommand(p =>
             {
-                if (p is string section)
-                    CurrentSection = section;
+                if (p is string raw)
+                {
+                    int sep = raw.IndexOf(':');
+                    if (sep > 0)
+                    {
+                        string section = raw[..sep];
+                        string subTab = raw[(sep + 1)..];
+                        if (section == "Diagnostics")
+                            Diagnostics.ActiveSubTab = subTab;
+                        CurrentSection = section;
+                    }
+                    else
+                    {
+                        if (raw == "Diagnostics")
+                            Diagnostics.ActiveSubTab = "Battery";
+                        CurrentSection = raw;
+                    }
+                }
             });
 
             InstallAppCommand = new RelayCommand(async p =>
@@ -656,7 +835,8 @@ namespace HardwareHub.ViewModels
             try
             {
                 await _softwareService.CheckAllInstalledStatusAsync(AllSoftware);
-                int count = AllSoftware.Count(x => x.IsInstalled);
+                await AppsCatalog.RefreshInstalledStatusAsync();
+                int count = AppsCatalog.InstalledCount;
                 AppendLog($"[INFO] Verificação de aplicativos concluída. {count} programas instalados.");
                 RefreshButtonText = $"✓ Verificado ({count} instalados)";
             }
@@ -947,6 +1127,16 @@ namespace HardwareHub.ViewModels
             _metricsTimer.Stop();
             _stressTestService?.StopCpuTest();
             _gpuRenderService?.Stop();
+            ProgramsStartup?.CancelProgramsTask();
+            StorageTools?.CancelActiveTask();
+            NetworkOptimizer?.CancelActiveTask();
+            DriversUpdate?.CancelActiveTask();
+            FormatBackup?.CancelActiveTask();
+            FakeCapacity?.CancelProbe();
+            Windows11?.CancelActiveTask();
+            RestorePoints?.CancelActiveTask();
+            DiskOptimization?.CancelActiveTask();
+            HealthReport?.Dispose();
             _hardwareService.Dispose();
         }
 
