@@ -1,11 +1,22 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
 using HardwareHub.Models;
 
 namespace HardwareHub.Services
 {
     public class MaintenanceService
     {
+        [DllImport("kernel32.dll")]
+        private static extern uint GetOEMCP();
+
+        static MaintenanceService()
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
+
         public List<MaintenanceTool> GetTools()
         {
             return new List<MaintenanceTool>
@@ -14,7 +25,7 @@ namespace HardwareHub.Services
                 {
                     Id = "clean_temp",
                     Title = "Limpeza de Arquivos Temporários",
-                    Description = "Varre e limpa com segurança arquivos obsoletos de %TEMP%, Windows Temp e Prefetch para liberar espaço no disco.",
+                    Description = "Varre e limpa com segurança arquivos obsoletos de %TEMP% e Windows Temp para liberar espaço no disco (preserva Prefetch para manter o boot rápido).",
                     Icon = "🧹",
                     ActionButtonText = "Limpar Agora",
                     AccentColor = "#10B981"
@@ -67,7 +78,7 @@ namespace HardwareHub.Services
             };
         }
 
-        public async Task RunToolAsync(MaintenanceTool tool, Action<string> logCallback)
+        public async Task RunToolAsync(MaintenanceTool tool, Action<string> logCallback, CancellationToken cancellationToken = default)
         {
             tool.IsRunning = true;
             tool.StatusText = "Executando...";
@@ -77,12 +88,17 @@ namespace HardwareHub.Services
             {
                 if (tool.Id == "clean_temp")
                 {
-                    await CleanTemporaryFilesAsync(tool, logCallback);
+                    await CleanTemporaryFilesAsync(tool, logCallback, cancellationToken);
                 }
                 else
                 {
-                    await RunCommandLineToolAsync(tool, logCallback);
+                    await RunCommandLineToolAsync(tool, logCallback, cancellationToken);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                tool.StatusText = "Cancelado";
+                logCallback($"[INFO] Execução de {tool.Title} cancelada.");
             }
             catch (Exception ex)
             {
@@ -96,7 +112,7 @@ namespace HardwareHub.Services
             }
         }
 
-        private async Task CleanTemporaryFilesAsync(MaintenanceTool tool, Action<string> logCallback)
+        private async Task CleanTemporaryFilesAsync(MaintenanceTool tool, Action<string> logCallback, CancellationToken ct)
         {
             await Task.Run(() =>
             {
@@ -105,8 +121,7 @@ namespace HardwareHub.Services
                 var directoriesToClean = new List<string>
                 {
                     Path.GetTempPath(),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Prefetch")
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp")
                 };
 
                 long totalBytesFreed = 0;
@@ -114,6 +129,7 @@ namespace HardwareHub.Services
 
                 foreach (var dir in directoriesToClean)
                 {
+                    ct.ThrowIfCancellationRequested();
                     if (!Directory.Exists(dir)) continue;
 
                     logCallback($"Examinando: {dir}...");
@@ -122,6 +138,7 @@ namespace HardwareHub.Services
                         var di = new DirectoryInfo(dir);
                         foreach (var file in di.GetFiles())
                         {
+                            if (ct.IsCancellationRequested) break;
                             try
                             {
                                 long size = file.Length;
@@ -137,6 +154,7 @@ namespace HardwareHub.Services
 
                         foreach (var subDir in di.GetDirectories())
                         {
+                            if (ct.IsCancellationRequested) break;
                             try
                             {
                                 subDir.Delete(true);
@@ -152,11 +170,14 @@ namespace HardwareHub.Services
 
                 double mbFreed = Math.Round(totalBytesFreed / (1024.0 * 1024.0), 1);
                 string summary = $"Concluído! {mbFreed:N1} MB liberados ({filesDeleted:N0} arquivos removidos).";
-                tool.StatusText = $"✓ Liberados {mbFreed:N1} MB";
-                tool.LastOutput = summary;
-                tool.ProgressPercent = 100;
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    tool.StatusText = $"✓ Liberados {mbFreed:N1} MB";
+                    tool.LastOutput = summary;
+                    tool.ProgressPercent = 100;
+                });
                 logCallback($"[SUCESSO] {summary}");
-            });
+            }, ct);
         }
 
         private (string fileName, string arguments) GetToolCommand(string toolId)
@@ -200,19 +221,22 @@ namespace HardwareHub.Services
                 {
                     _ = Task.Run(async () =>
                     {
-                        try
+                        using (process)
                         {
-                            await process.WaitForExitAsync();
-                        }
-                        catch { }
-                        finally
-                        {
-                            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                            try
                             {
-                                tool.IsRunning = false;
-                                tool.StatusText = "✓ Finalizado no CMD";
-                                logCallback?.Invoke($"[CMD] Janela de {tool.Title} foi fechada.");
-                            });
+                                await process.WaitForExitAsync();
+                            }
+                            catch { }
+                            finally
+                            {
+                                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                                {
+                                    tool.IsRunning = false;
+                                    tool.StatusText = "✓ Finalizado no CMD";
+                                    logCallback?.Invoke($"[CMD] Janela de {tool.Title} foi fechada.");
+                                });
+                            }
                         }
                     });
                 }
@@ -230,96 +254,273 @@ namespace HardwareHub.Services
             }
         }
 
-        private async Task RunCommandLineToolAsync(MaintenanceTool tool, Action<string> logCallback)
+        private static TimeSpan GetToolTimeout(string toolId) => toolId switch
+        {
+            "dism_restore" => TimeSpan.FromMinutes(60),
+            "sfc_scannow" => TimeSpan.FromMinutes(45),
+            "chkdsk_scan" or "trim_ssd" => TimeSpan.FromMinutes(20),
+            _ => TimeSpan.FromMinutes(5)
+        };
+
+        private async Task RunCommandLineToolAsync(MaintenanceTool tool, Action<string> logCallback, CancellationToken cancellationToken = default)
         {
             var (fileName, arguments) = GetToolCommand(tool.Id);
+            TimeSpan timeout = GetToolTimeout(tool.Id);
 
             logCallback($"\n>>> Executando comando: {fileName} {arguments}");
 
-            await Task.Run(() =>
+            var psi = new ProcessStartInfo
             {
-                var psi = new ProcessStartInfo
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = true
+            };
+
+            using var process = Process.Start(psi) ?? throw new InvalidOperationException($"Não foi possível iniciar {fileName}.");
+            try { process.StandardInput.Close(); } catch { }
+
+            var fullOutput = new StringBuilder();
+            bool timedOut = false;
+
+            using var timeoutCts = new CancellationTokenSource(timeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            using var killRegistration = linkedCts.Token.Register(() =>
+            {
+                if (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    StandardOutputEncoding = System.Text.Encoding.Default,
-                    StandardErrorEncoding = System.Text.Encoding.Default
-                };
+                    timedOut = true;
+                }
+                try { process.Kill(entireProcessTree: true); } catch { }
+            });
 
-                using var process = new Process { StartInfo = psi };
-                process.Start();
-
-                var outTask = Task.Run(async () =>
+            var outTask = Task.Run(() => ReadDecodedStream(process.StandardOutput.BaseStream, line =>
+            {
+                lock (fullOutput)
                 {
-                    var sb = new System.Text.StringBuilder();
-                    char[] buffer = new char[128];
-                    int read;
-                    while ((read = await process.StandardOutput.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                    {
-                        for (int i = 0; i < read; i++)
-                        {
-                            char c = buffer[i];
-                            if (c == '\r' || c == '\n')
-                            {
-                                string line = sb.ToString().Trim();
-                                sb.Clear();
-                                if (!string.IsNullOrWhiteSpace(line))
-                                {
-                                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
-                                    {
-                                        tool.LastOutput = line;
-                                        tool.StatusText = line;
-                                        var m = System.Text.RegularExpressions.Regex.Match(line, @"(\d+)\s*%", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                                        if (m.Success && int.TryParse(m.Groups[1].Value, out int pct))
-                                        {
-                                            tool.ProgressPercent = Math.Clamp(pct, 0, 100);
-                                        }
-                                    });
-                                    logCallback(line);
-                                }
-                            }
-                            else
-                            {
-                                sb.Append(c);
-                            }
-                        }
-                    }
-                });
-
-                var errTask = Task.Run(async () =>
-                {
-                    string? err;
-                    while ((err = await process.StandardError.ReadLineAsync()) != null)
-                    {
-                        if (!string.IsNullOrWhiteSpace(err))
-                        {
-                            logCallback($"[ERRO] {err}");
-                        }
-                    }
-                });
-
-                process.WaitForExit();
-                Task.WaitAll(new[] { outTask, errTask }, TimeSpan.FromSeconds(5));
-
+                    fullOutput.AppendLine(line);
+                }
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    if (process.ExitCode == 0)
+                    tool.LastOutput = line;
+                    tool.StatusText = line;
+                    var m = Regex.Match(line, @"(\d+(?:[.,]\d+)?)\s*%");
+                    if (m.Success && double.TryParse(m.Groups[1].Value.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double pct))
                     {
-                        tool.StatusText = "✓ Concluído com Sucesso";
-                        logCallback($"[SUCESSO] Operação de {tool.Title} finalizada com código 0.");
+                        tool.ProgressPercent = (int)Math.Clamp(pct, 0, 100);
+                    }
+                });
+                logCallback(line);
+            }), CancellationToken.None);
+
+            var errTask = Task.Run(() => ReadDecodedStream(process.StandardError.BaseStream, err =>
+            {
+                lock (fullOutput)
+                {
+                    fullOutput.AppendLine(err);
+                }
+                logCallback($"[ERRO] {err}");
+            }), CancellationToken.None);
+
+            try
+            {
+                await process.WaitForExitAsync(linkedCts.Token);
+            }
+            catch (OperationCanceledException) when (timedOut)
+            {
+                await Task.WhenAll(outTask, errTask);
+                string hint = tool.Id is "dism_restore" or "sfc_scannow"
+                    ? " (Costuma ocorrer se o Windows Update estiver ocupado ou pendente de reinício.)"
+                    : "";
+                string msg = $"Tempo limite de {(int)timeout.TotalMinutes} min atingido{hint}";
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    tool.StatusText = "Tempo limite excedido";
+                    tool.LastOutput = msg;
+                });
+                logCallback($"[AVISO] {tool.Title}: {msg}");
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                await Task.WhenAll(outTask, errTask);
+                throw;
+            }
+
+            await Task.WhenAll(outTask, errTask);
+
+            string collectedText;
+            lock (fullOutput)
+            {
+                collectedText = fullOutput.ToString();
+            }
+
+            int exitCode = process.ExitCode;
+            var (statusText, summaryLog) = InterpretToolResult(tool.Id, tool.Title, exitCode, collectedText);
+
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                tool.StatusText = statusText;
+                tool.ProgressPercent = 100;
+            });
+            logCallback(summaryLog);
+        }
+
+        private static void ReadDecodedStream(Stream stream, Action<string> onLine)
+        {
+            byte[] buffer = new byte[4096];
+            char[] charBuffer = new char[8192];
+            Decoder? decoder = null;
+            var lineBuilder = new StringBuilder();
+            bool pendingCr = false;
+
+            int bytesRead;
+            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (decoder == null)
+                {
+                    bool looksUtf16Le = false;
+                    if (bytesRead >= 2 && buffer[0] == 0xFF && buffer[1] == 0xFE)
+                    {
+                        looksUtf16Le = true;
                     }
                     else
                     {
-                        tool.StatusText = $"Finalizado (Código {process.ExitCode})";
-                        logCallback($"[INFO] {tool.Title} finalizado com código {process.ExitCode}.");
+                        int zeroOdd = 0;
+                        int pairs = bytesRead / 2;
+                        for (int i = 1; i < bytesRead; i += 2)
+                        {
+                            if (buffer[i] == 0) zeroOdd++;
+                        }
+                        looksUtf16Le = pairs > 0 && zeroOdd * 10 >= pairs * 6;
                     }
-                    tool.ProgressPercent = 100;
-                });
-            });
+
+                    Encoding enc;
+                    if (looksUtf16Le)
+                    {
+                        enc = Encoding.Unicode;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            uint oemCp = GetOEMCP();
+                            enc = oemCp == 65001
+                                ? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+                                : Encoding.GetEncoding((int)oemCp);
+                        }
+                        catch
+                        {
+                            enc = Encoding.Latin1;
+                        }
+                    }
+                    decoder = enc.GetDecoder();
+                }
+
+                int chars = decoder.GetChars(buffer, 0, bytesRead, charBuffer, 0);
+                for (int i = 0; i < chars; i++)
+                {
+                    char c = charBuffer[i];
+                    if (c == '\0' || c == '\ufeff') continue;
+
+                    if (pendingCr && c != '\n')
+                    {
+                        FlushBuilder();
+                    }
+                    pendingCr = false;
+
+                    if (c == '\r')
+                    {
+                        pendingCr = true;
+                    }
+                    else if (c == '\n')
+                    {
+                        FlushBuilder();
+                    }
+                    else
+                    {
+                        lineBuilder.Append(c);
+                    }
+                }
+            }
+
+            FlushBuilder();
+
+            void FlushBuilder()
+            {
+                string line = lineBuilder.ToString().Trim();
+                lineBuilder.Clear();
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    onLine(line);
+                }
+            }
+        }
+
+        private static (string statusText, string logMessage) InterpretToolResult(
+            string toolId,
+            string title,
+            int exitCode,
+            string output)
+        {
+            uint unsignedCode = unchecked((uint)exitCode);
+
+            if (exitCode == 3010)
+            {
+                return ("✓ Concluído (Reinicie o PC)",
+                    $"[SUCESSO] {title} concluído; reinicialização do Windows necessária para finalizar alterações (código 3010).");
+            }
+
+            if (exitCode is 740 or 5 ||
+                unsignedCode == 0x80070005 ||
+                output.Contains("must be an administrator", StringComparison.OrdinalIgnoreCase) ||
+                output.Contains("privilégios elevados", StringComparison.OrdinalIgnoreCase) ||
+                output.Contains("precisa ser administrador", StringComparison.OrdinalIgnoreCase))
+            {
+                return ("Requer Administrador",
+                    $"[ERRO] {title} precisa de privilégios de Administrador (código {exitCode}). Execute o app como Admin ou use 'Abrir no CMD'.");
+            }
+
+            if (toolId == "dism_restore")
+            {
+                if (unsignedCode == 0x800F081F)
+                {
+                    return ("Falha: origem não encontrada",
+                        "[ERRO] DISM não encontrou os arquivos de origem (0x800F081F). Verifique a internet ou forneça uma ISO montada como fonte.");
+                }
+                if (unsignedCode == 0x800F0906 || unsignedCode == 0x8024002E)
+                {
+                    return ("Falha ao baixar arquivos",
+                        $"[ERRO] DISM não conseguiu baixar os arquivos do Windows Update (0x{unsignedCode:X8}).");
+                }
+            }
+
+            if (exitCode == 0)
+            {
+                if (toolId == "sfc_scannow")
+                {
+                    if (output.Contains("successfully repaired", StringComparison.OrdinalIgnoreCase) ||
+                        output.Contains("reparou com êxito", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ("✓ Arquivos reparados",
+                            "[SUCESSO] SFC encontrou arquivos corrompidos e os reparou com êxito. Recomenda-se reiniciar o PC.");
+                    }
+                    if (output.Contains("unable to fix", StringComparison.OrdinalIgnoreCase) ||
+                        output.Contains("não pôde corrigir", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ("Atenção: não corrigido totalmente",
+                            "[AVISO] SFC encontrou arquivos corrompidos que não puderam ser corrigidos. Rode o DISM RestoreHealth primeiro e depois o SFC novamente.");
+                    }
+                }
+
+                return ("✓ Concluído com Sucesso", $"[SUCESSO] Operação de {title} finalizada com código 0.");
+            }
+
+            return ($"Finalizado (Código {exitCode})",
+                $"[INFO] {title} finalizado com código {exitCode} (0x{unsignedCode:X8}).");
         }
     }
 }

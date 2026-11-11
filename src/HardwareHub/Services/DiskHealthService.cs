@@ -12,6 +12,7 @@ namespace HardwareHub.Services
         public List<DiskHealthInfo> GetDisksHealth()
         {
             var results = new Dictionary<int, DiskHealthInfo>();
+            var pnpIds = new Dictionary<int, string>();
 
             // 1. Base com Win32_DiskDrive
             try
@@ -29,6 +30,7 @@ namespace HardwareHub.Services
                         ? "USB"
                         : (obj["InterfaceType"]?.ToString() ?? "SATA");
 
+                    pnpIds[index] = pnp;
                     results[index] = new DiskHealthInfo
                     {
                         Index = index,
@@ -37,7 +39,7 @@ namespace HardwareHub.Services
                         Interface = iface,
                         MediaType = (model.Contains("SSD", StringComparison.OrdinalIgnoreCase) || model.Contains("NVMe", StringComparison.OrdinalIgnoreCase)) ? "SSD" : "HDD",
                         CapacityGb = Math.Round(sizeBytes / (1024.0 * 1024.0 * 1024.0), 1),
-                        HealthStatus = "Saudável",
+                        HealthStatus = "Desconhecido",
                         HealthPercentage = 100
                     };
                 }
@@ -57,10 +59,10 @@ namespace HardwareHub.Services
                         string letter = part["DriveLetter"]?.ToString()?.Trim() ?? "";
                         if (!string.IsNullOrEmpty(letter) && letter != "0" && letter.Length == 1 && char.IsLetter(letter[0]))
                         {
-                            string formatted = $"{letter.ToUpper()}:";
+                            string formatted = $"{char.ToUpperInvariant(letter[0])}:";
                             if (string.IsNullOrEmpty(info.DriveLetters))
                                 info.DriveLetters = formatted;
-                            else if (!info.DriveLetters.Contains(formatted))
+                            else if (!info.DriveLetters.Contains(formatted, StringComparison.OrdinalIgnoreCase))
                                 info.DriveLetters += $", {formatted}";
                         }
                     }
@@ -81,13 +83,14 @@ namespace HardwareHub.Services
                         string devId = obj["DeviceId"]?.ToString() ?? "";
                         if (!int.TryParse(devId, out int idx) || !results.TryGetValue(idx, out var info)) continue;
 
-                        int health = Convert.ToInt32(obj["HealthStatus"] ?? 0);
+                        int health = Convert.ToInt32(obj["HealthStatus"] ?? 5);
                         info.HealthStatus = health switch
                         {
                             0 => "Saudável",
                             1 => "Atenção",
                             2 => "Crítico",
-                            _ => "Saudável"
+                            5 => "Desconhecido",
+                            _ => "Desconhecido"
                         };
 
                         int media = Convert.ToInt32(obj["MediaType"] ?? 0);
@@ -95,6 +98,7 @@ namespace HardwareHub.Services
                         {
                             3 => "HDD",
                             4 => "SSD",
+                            5 => "SCM",
                             _ => info.MediaType
                         };
 
@@ -103,6 +107,7 @@ namespace HardwareHub.Services
                         {
                             17 => "NVMe",
                             11 => "SATA",
+                            10 => "SAS",
                             7 => "USB",
                             8 => "RAID",
                             _ => info.Interface
@@ -110,41 +115,55 @@ namespace HardwareHub.Services
                     }
                 }
 
-                using (var searcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT DeviceId, Temperature, PowerOnHours, ReadErrorsTotal, WriteErrorsTotal, Wear FROM MSFT_StorageReliabilityCounter")))
+                using (var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(
+                    "SELECT DeviceId, Temperature, TemperatureMax, PowerOnHours, ReadErrorsUncorrected, WriteErrorsUncorrected, StartStopCycleCount, Wear FROM MSFT_StorageReliabilityCounter")))
                 {
                     foreach (ManagementObject obj in searcher.Get())
                     {
                         string devId = obj["DeviceId"]?.ToString() ?? "";
                         if (!int.TryParse(devId, out int idx) || !results.TryGetValue(idx, out var info)) continue;
 
-                        if (obj["Temperature"] != null && double.TryParse(obj["Temperature"]?.ToString(), out double temp) && temp > 0)
+                        if (TryReadDouble(obj["Temperature"], out double temp) && temp > 0 && temp < 150)
                         {
                             info.Temperature = temp;
                         }
+                        else if (TryReadDouble(obj["TemperatureMax"], out double tempMax) && tempMax > 0 && tempMax < 150 && !info.Temperature.HasValue)
+                        {
+                            info.Temperature = tempMax;
+                        }
 
-                        if (obj["PowerOnHours"] != null && long.TryParse(obj["PowerOnHours"]?.ToString(), out long hours))
+                        if (TryReadLong(obj["PowerOnHours"], out long hours) && hours >= 0 && hours < 1_000_000)
                         {
                             info.PowerOnHours = hours;
                         }
 
-                        if (obj["Wear"] != null && int.TryParse(obj["Wear"]?.ToString(), out int wear))
+                        if (TryReadLong(obj["StartStopCycleCount"], out long cycles) && cycles > 0 && cycles < 10_000_000)
                         {
-                            info.HealthPercentage = Math.Max(0, 100 - wear);
+                            info.PowerOnCount = cycles;
                         }
 
-                        long readErr = Convert.ToInt64(obj["ReadErrorsTotal"] ?? 0L);
-                        long writeErr = Convert.ToInt64(obj["WriteErrorsTotal"] ?? 0L);
-                        if (readErr > 0 || writeErr > 0)
+                        if (TryReadLong(obj["Wear"], out long wear) && wear >= 0 && wear <= 100)
+                        {
+                            info.HealthPercentage = Math.Max(0, 100 - (int)wear);
+                        }
+
+                        TryReadLong(obj["ReadErrorsUncorrected"], out long readUnc);
+                        TryReadLong(obj["WriteErrorsUncorrected"], out long writeUnc);
+                        if (readUnc > 0 || writeUnc > 0)
                         {
                             info.HasSmartErrors = true;
-                            if (info.HealthStatus == "Saudável") info.HealthStatus = "Atenção";
+                            if (info.HealthStatus is "Saudável" or "Desconhecido")
+                                info.HealthStatus = "Atenção";
                         }
                     }
                 }
             }
             catch { }
 
-            // 4. Integração nativa com Base S.M.A.R.T. do CrystalDiskInfo (se presente em pastas portáteis ou padrão)
+            // 4. S.M.A.R.T. nativo via root\wmi (MSStorageDriver_FailurePredict*)
+            ReadNativeWmiSmart(results, pnpIds);
+
+            // 5. Integração complementar com Base S.M.A.R.T. do CrystalDiskInfo (se presente em pastas portáteis ou padrão)
             try
             {
                 string[] possibleSmartDirs = {
@@ -216,6 +235,229 @@ namespace HardwareHub.Services
             return results.Values.OrderBy(x => x.Index).ToList();
         }
 
+        private static bool TryReadDouble(object? raw, out double value)
+        {
+            value = 0;
+            if (raw == null) return false;
+            try
+            {
+                value = Convert.ToDouble(raw);
+                return !double.IsNaN(value) && !double.IsInfinity(value);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryReadLong(object? raw, out long value)
+        {
+            value = 0;
+            if (raw == null) return false;
+            try
+            {
+                value = Convert.ToInt64(raw);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static DiskHealthInfo? MatchDiskByInstance(
+            Dictionary<int, DiskHealthInfo> results,
+            Dictionary<int, string> pnpIds,
+            string? instanceName)
+        {
+            if (string.IsNullOrEmpty(instanceName)) return null;
+            foreach (var kv in pnpIds)
+            {
+                if (!string.IsNullOrEmpty(kv.Value) &&
+                    instanceName.StartsWith(kv.Value, StringComparison.OrdinalIgnoreCase) &&
+                    results.TryGetValue(kv.Key, out var info))
+                {
+                    return info;
+                }
+            }
+            return null;
+        }
+
+        private static void ReadNativeWmiSmart(
+            Dictionary<int, DiskHealthInfo> results,
+            Dictionary<int, string> pnpIds)
+        {
+            try
+            {
+                var wmiScope = new ManagementScope(@"\\.\root\wmi");
+                wmiScope.Connect();
+
+                try
+                {
+                    using var statusSearcher = new ManagementObjectSearcher(
+                        wmiScope,
+                        new ObjectQuery("SELECT InstanceName, PredictFailure FROM MSStorageDriver_FailurePredictStatus"));
+                    foreach (ManagementObject obj in statusSearcher.Get())
+                    {
+                        var disk = MatchDiskByInstance(results, pnpIds, obj["InstanceName"]?.ToString());
+                        if (disk == null) continue;
+
+                        if (obj["PredictFailure"] is bool predict && predict)
+                        {
+                            disk.HasSmartErrors = true;
+                            disk.HealthStatus = "Crítico";
+                        }
+                    }
+                }
+                catch { }
+
+                var thresholdsByDisk = new Dictionary<int, byte[]>();
+                try
+                {
+                    using var threshSearcher = new ManagementObjectSearcher(
+                        wmiScope,
+                        new ObjectQuery("SELECT InstanceName, VendorSpecific FROM MSStorageDriver_FailurePredictThresholds"));
+                    foreach (ManagementObject obj in threshSearcher.Get())
+                    {
+                        var disk = MatchDiskByInstance(results, pnpIds, obj["InstanceName"]?.ToString());
+                        if (disk != null && obj["VendorSpecific"] is byte[] threshBytes)
+                        {
+                            thresholdsByDisk[disk.Index] = threshBytes;
+                        }
+                    }
+                }
+                catch { }
+
+                using var dataSearcher = new ManagementObjectSearcher(
+                    wmiScope,
+                    new ObjectQuery("SELECT InstanceName, VendorSpecific FROM MSStorageDriver_FailurePredictData"));
+                foreach (ManagementObject obj in dataSearcher.Get())
+                {
+                    var disk = MatchDiskByInstance(results, pnpIds, obj["InstanceName"]?.ToString());
+                    if (disk == null || obj["VendorSpecific"] is not byte[] rawSmart) continue;
+
+                    thresholdsByDisk.TryGetValue(disk.Index, out byte[]? threshBytes);
+                    DecodeSmartAttributes(disk, rawSmart, threshBytes);
+                }
+            }
+            catch
+            {
+                // Sem permissão de administrador ou driver sem suporte a root\wmi SMART
+            }
+        }
+
+        private static void DecodeSmartAttributes(DiskHealthInfo info, byte[] data, byte[]? thresholds)
+        {
+            bool parsedAny = false;
+            long pendingAndUncorrectable = 0;
+
+            for (int i = 2; i + 12 <= data.Length && i < 362; i += 12)
+            {
+                byte id = data[i];
+                if (id == 0) continue;
+
+                parsedAny = true;
+                byte currentVal = data[i + 3];
+                long raw = 0L;
+                for (int j = 0; j < 6; j++)
+                {
+                    raw |= (long)((ulong)data[i + 5 + j] << (8 * j));
+                }
+
+                byte threshold = 0;
+                if (thresholds != null)
+                {
+                    for (int k = 2; k + 12 <= thresholds.Length && k < 362; k += 12)
+                    {
+                        if (thresholds[k] == id)
+                        {
+                            threshold = thresholds[k + 1];
+                            break;
+                        }
+                    }
+                }
+
+                if (threshold > 0 && currentVal > 0 && currentVal <= threshold)
+                {
+                    info.HasSmartErrors = true;
+                    if (info.HealthStatus is "Saudável" or "Desconhecido")
+                        info.HealthStatus = "Atenção";
+                }
+
+                switch (id)
+                {
+                    case 5: // Reallocated Sectors Count
+                    {
+                        long reallocated = raw & 0xFFFFFFFFL;
+                        if (reallocated > 0)
+                        {
+                            info.HasSmartErrors = true;
+                            if (reallocated >= 100)
+                                info.HealthStatus = "Crítico";
+                            else if (info.HealthStatus is "Saudável" or "Desconhecido")
+                                info.HealthStatus = "Atenção";
+                        }
+                        break;
+                    }
+                    case 197: // Current Pending Sector Count
+                    case 198: // Uncorrectable Sector Count
+                    {
+                        long sectorErrors = raw & 0xFFFFFFFFL;
+                        if (sectorErrors > 0)
+                        {
+                            pendingAndUncorrectable += sectorErrors;
+                            info.HasSmartErrors = true;
+                            if (pendingAndUncorrectable >= 10)
+                                info.HealthStatus = "Crítico";
+                            else if (info.HealthStatus is "Saudável" or "Desconhecido")
+                                info.HealthStatus = "Atenção";
+                        }
+                        break;
+                    }
+                    case 9: // Power-On Hours
+                    {
+                        long hours = raw & 0xFFFFFFFFL;
+                        if (!info.PowerOnHours.HasValue && hours > 0 && hours < 1_000_000)
+                        {
+                            info.PowerOnHours = hours;
+                        }
+                        break;
+                    }
+                    case 12: // Power Cycle Count
+                    {
+                        if (!info.PowerOnCount.HasValue && raw > 0 && raw < 10_000_000)
+                        {
+                            info.PowerOnCount = raw;
+                        }
+                        break;
+                    }
+                    case 194: // Temperature
+                    case 190: // Airflow Temperature
+                    {
+                        long temp = raw & 0xFFL;
+                        if (!info.Temperature.HasValue && temp > 0 && temp < 120)
+                        {
+                            info.Temperature = temp;
+                        }
+                        break;
+                    }
+                    case 231: // SSD Life Left
+                    {
+                        if (info.MediaType == "SSD" && info.HealthPercentage == 100 && currentVal <= 100)
+                        {
+                            info.HealthPercentage = currentVal;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (parsedAny && info.HealthStatus == "Desconhecido")
+            {
+                info.HealthStatus = info.HasSmartErrors ? "Atenção" : "Saudável";
+            }
+        }
+
         public async Task RunSpeedBenchmarkAsync(DiskHealthInfo disk, Action<string> progressCallback)
         {
             if (disk.IsTestingSpeed) return;
@@ -225,14 +467,25 @@ namespace HardwareHub.Services
             await Task.Run(() =>
             {
                 string targetDir = Path.GetTempPath();
-                // Tenta achar a primeira letra montada deste disco
+                // Tenta achar a primeira letra montada deste disco com espaço disponível (>= 128 MB)
                 if (!string.IsNullOrEmpty(disk.DriveLetters))
                 {
-                    string firstLetter = disk.DriveLetters.Split(',')[0].Trim();
-                    string candidate = $"{firstLetter}\\";
-                    if (Directory.Exists(candidate))
+                    foreach (string entry in disk.DriveLetters.Split(',', StringSplitOptions.RemoveEmptyEntries))
                     {
-                        targetDir = candidate;
+                        string candidate = $"{entry.Trim()}\\";
+                        try
+                        {
+                            if (Directory.Exists(candidate))
+                            {
+                                var driveInfo = new DriveInfo(candidate);
+                                if (driveInfo.IsReady && driveInfo.AvailableFreeSpace >= 128L * 1024 * 1024)
+                                {
+                                    targetDir = candidate;
+                                    break;
+                                }
+                            }
+                        }
+                        catch { }
                     }
                 }
 

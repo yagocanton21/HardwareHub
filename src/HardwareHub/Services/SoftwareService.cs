@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using HardwareHub.Models;
 using Microsoft.Win32;
 
@@ -7,6 +8,12 @@ namespace HardwareHub.Services
 {
     public class SoftwareService
     {
+        private sealed class WingetLockLease(ManualResetEventSlim releaseSignal) : IDisposable
+        {
+            public void Dispose() => releaseSignal.Set();
+        }
+
+        private const string WingetMutexName = @"Local\HardwareHub-winget-instalacao";
         private static readonly object InstallLogLock = new();
         private static readonly string InstallLogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -516,12 +523,70 @@ namespace HardwareHub.Services
             return false;
         }
 
+        private static Task<IDisposable> AcquireWingetLockAsync(Action? onWaiting = null, CancellationToken ct = default)
+        {
+            var acquired = new TaskCompletionSource<IDisposable>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseSignal = new ManualResetEventSlim(false);
+
+            var thread = new Thread(() =>
+            {
+                bool holdsMutex = false;
+                try
+                {
+                    using var mutex = new Mutex(false, WingetMutexName);
+                    bool notified = false;
+                    while (!holdsMutex)
+                    {
+                        if (ct.IsCancellationRequested)
+                        {
+                            acquired.TrySetCanceled(ct);
+                            return;
+                        }
+
+                        try
+                        {
+                            holdsMutex = mutex.WaitOne(500);
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            holdsMutex = true;
+                        }
+
+                        if (!holdsMutex && !notified)
+                        {
+                            notified = true;
+                            onWaiting?.Invoke();
+                        }
+                    }
+
+                    acquired.TrySetResult(new WingetLockLease(releaseSignal));
+                    releaseSignal.Wait();
+                    mutex.ReleaseMutex();
+                }
+                catch (Exception ex)
+                {
+                    acquired.TrySetException(ex);
+                }
+                finally
+                {
+                    releaseSignal.Dispose();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "HardwareHub-WingetLock"
+            };
+            thread.Start();
+
+            return acquired.Task;
+        }
+
         public static string GetWingetPath()
         {
             // 1. Procura diretamente no PATH do sistema
             try
             {
-                var proc = Process.Start(new ProcessStartInfo
+                using var proc = Process.Start(new ProcessStartInfo
                 {
                     FileName = "where.exe",
                     Arguments = "winget",
@@ -529,10 +594,13 @@ namespace HardwareHub.Services
                     UseShellExecute = false,
                     CreateNoWindow = true
                 });
-                string? output = proc?.StandardOutput.ReadLine();
-                proc?.WaitForExit(2000);
-                if (!string.IsNullOrEmpty(output) && File.Exists(output))
-                    return output;
+                if (proc != null)
+                {
+                    string? output = proc.StandardOutput.ReadLine()?.Trim();
+                    proc.WaitForExit(2000);
+                    if (!string.IsNullOrEmpty(output) && File.Exists(output))
+                        return output;
+                }
             }
             catch { }
 
@@ -619,6 +687,14 @@ namespace HardwareHub.Services
 
             return await Task.Run(async () =>
             {
+                using var wingetLock = await AcquireWingetLockAsync(() =>
+                {
+                    item.StatusMessage = "Aguardando outra instalação...";
+                    WriteInstallLog(operationId, "WAITING for active winget mutex");
+                    logCallback($"[FILA] {item.Name} aguardando término da instalação em andamento...");
+                });
+
+                item.StatusMessage = "Iniciando download...";
                 try
                 {
                     bool isMsStore = item.WingetId.StartsWith("9N", StringComparison.OrdinalIgnoreCase);
@@ -732,11 +808,19 @@ namespace HardwareHub.Services
                     }
                     else
                     {
-                        WriteInstallLog(operationId, $"FAILURE exitCode={process.ExitCode}; hex=0x{unchecked((uint)process.ExitCode):X8}; elapsed={stopwatch.Elapsed}");
+                        uint unsignedCode = unchecked((uint)process.ExitCode);
+                        WriteInstallLog(operationId, $"FAILURE exitCode={process.ExitCode}; hex=0x{unsignedCode:X8}; elapsed={stopwatch.Elapsed}");
                         item.Status = PackageStatus.Failed;
-                        item.StatusMessage = $"Falha ({process.ExitCode})";
+                        item.StatusMessage = unsignedCode switch
+                        {
+                            0x8A150011 => "Falha de hash (0x8A150011)",
+                            0x8A150014 => "Pacote não encontrado",
+                            0x8A150010 => "Sem instalador compatível",
+                            0x80070005 or 740 => "Requer privilégios de Admin",
+                            _ => $"Falha (0x{unsignedCode:X8})"
+                        };
                         item.IsIndeterminate = false;
-                        logCallback($"[ERRO] Código de saída winget: {process.ExitCode}");
+                        logCallback($"[ERRO] Código de saída winget: {process.ExitCode} (0x{unsignedCode:X8})");
                         return false;
                     }
                 }
@@ -861,7 +945,17 @@ namespace HardwareHub.Services
                 using var proc = Process.Start(psi);
                 if (proc != null)
                 {
-                    await proc.WaitForExitAsync();
+                    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                    try
+                    {
+                        await proc.WaitForExitAsync(cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        try { proc.Kill(entireProcessTree: true); } catch { }
+                        logCallback("[DRIVER] Tempo limite excedido ao instalar PawnIO.");
+                        return HardwareService.IsPawnIOInstalled;
+                    }
                     return proc.ExitCode == 0 || HardwareService.IsPawnIOInstalled;
                 }
                 return false;
@@ -870,6 +964,15 @@ namespace HardwareHub.Services
             {
                 logCallback($"[DRIVER EXCEÇÃO] {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                try
+                {
+                    string tempSetup = Path.Combine(Path.GetTempPath(), "PawnIO_setup.exe");
+                    if (File.Exists(tempSetup)) File.Delete(tempSetup);
+                }
+                catch { }
             }
         }
 
@@ -885,7 +988,7 @@ namespace HardwareHub.Services
                     var psi = new ProcessStartInfo
                     {
                         FileName = GetWingetPath(),
-                        Arguments = $"search \"{query.Trim()}\" --accept-source-agreements -n 14",
+                        Arguments = $"search \"{query.Trim().Replace("\"", "")}\" --accept-source-agreements --disable-interactivity -n 14",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,
                         CreateNoWindow = true,
@@ -895,54 +998,111 @@ namespace HardwareHub.Services
                     using var process = Process.Start(psi);
                     if (process == null) return list;
 
-                    string output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit(15000);
-
-                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    bool passedDivider = false;
-                    int idColumnIndex = -1;
-
-                    foreach (var line in lines)
+                    var outputTask = process.StandardOutput.ReadToEndAsync();
+                    if (!process.WaitForExit(15000))
                     {
-                        if (line.StartsWith("---"))
-                        {
-                            passedDivider = true;
-                            continue;
-                        }
+                        try { process.Kill(entireProcessTree: true); } catch { }
+                        return list;
+                    }
 
-                        if (!passedDivider)
+                    string output = outputTask.GetAwaiter().GetResult();
+                    var normalizedLines = output
+                        .Replace("\r\n", "\n")
+                        .Split('\n')
+                        .Select(l => l.Contains('\r') ? l[(l.LastIndexOf('\r') + 1)..] : l)
+                        .ToList();
+
+                    int dividerIndex = normalizedLines.FindIndex(l =>
+                    {
+                        string t = l.Trim();
+                        return t.Length >= 15 && t.All(c => c == '-');
+                    });
+
+                    if (dividerIndex < 1) return list;
+
+                    string header = normalizedLines[dividerIndex - 1];
+                    var colStarts = new List<int>();
+                    for (int i = 0; i < header.Length; i++)
+                    {
+                        if (header[i] != ' ' && (i == 0 || header[i - 1] == ' '))
                         {
-                            if (line.StartsWith("Name", StringComparison.OrdinalIgnoreCase))
+                            colStarts.Add(i);
+                        }
+                    }
+
+                    if (colStarts.Count < 3) return list;
+
+                    for (int row = dividerIndex + 1; row < normalizedLines.Count; row++)
+                    {
+                        string line = normalizedLines[row].TrimEnd();
+                        if (string.IsNullOrWhiteSpace(line) || line.StartsWith("<")) continue;
+
+                        string name = "";
+                        string id = "";
+                        string version = "";
+
+                        bool columnsAligned = line.Length > colStarts[1] &&
+                                              !colStarts.Skip(1).Take(2).Any(pos => pos < line.Length && pos > 0 && line[pos - 1] != ' ');
+
+                        if (columnsAligned)
+                        {
+                            int endName = Math.Min(colStarts[1], line.Length);
+                            name = line[..endName].Trim();
+
+                            int startId = colStarts[1];
+                            int endId = line.Length > colStarts[2] ? colStarts[2] : line.Length;
+                            id = line[startId..endId].Trim();
+
+                            if (line.Length > colStarts[2])
                             {
-                                idColumnIndex = line.IndexOf("Id", StringComparison.OrdinalIgnoreCase);
+                                int startVer = colStarts[2];
+                                int endVer = colStarts.Count >= 4 && line.Length > colStarts[3] ? colStarts[3] : line.Length;
+                                version = line[startVer..endVer].Trim();
                             }
-                            continue;
                         }
 
-                        if (idColumnIndex > 0 && line.Length > idColumnIndex)
+                        // Fallback da direita para esquerda quando nomes longos invadem a coluna de Id
+                        if (!columnsAligned || string.IsNullOrEmpty(id) || id.Contains(' '))
                         {
-                            string name = line.Substring(0, idColumnIndex).Trim();
-                            string rest = line.Substring(idColumnIndex).Trim();
-                            string[] tokens = rest.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                            if (tokens.Length >= 1)
+                            var tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            int idTokenIdx = -1;
+                            for (int t = tokens.Length - 1; t >= 1; t--)
                             {
-                                string id = tokens[0].Trim();
-                                string version = tokens.Length >= 2 ? tokens[1].Trim() : "";
-
-                                if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(id) && !name.StartsWith("<") && !id.Contains("truncated"))
+                                string cand = tokens[t];
+                                if (Regex.IsMatch(cand, @"^([A-Za-z0-9][A-Za-z0-9._-]*\.[A-Za-z0-9._-]+|9[A-Za-z0-9]{8,})$"))
                                 {
-                                    list.Add(new SoftwareItem
-                                    {
-                                        Id = id.ToLowerInvariant(),
-                                        Name = name,
-                                        Publisher = "Repositório Oficial Winget",
-                                        Category = "Winget Online",
-                                        WingetId = id,
-                                        Description = $"Pacote encontrado online no repositório global do Windows (Versão: {version}). Instalação silenciosa de 1 clique."
-                                    });
+                                    idTokenIdx = t;
+                                    break;
                                 }
                             }
+
+                            if (idTokenIdx < 1) continue;
+                            name = string.Join(' ', tokens.Take(idTokenIdx));
+                            id = tokens[idTokenIdx];
+                            version = idTokenIdx + 1 < tokens.Length ? tokens[idTokenIdx + 1] : "";
                         }
+
+                        name = name.TrimEnd('…').Trim();
+                        if (string.IsNullOrEmpty(name) ||
+                            string.IsNullOrEmpty(id) ||
+                            id.EndsWith('…') ||
+                            id.EndsWith("...", StringComparison.Ordinal) ||
+                            id.Contains("truncated", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        list.Add(new SoftwareItem
+                        {
+                            Id = id.ToLowerInvariant(),
+                            Name = name,
+                            Publisher = "Repositório Oficial Winget",
+                            Category = "Winget Online",
+                            WingetId = id,
+                            Description = string.IsNullOrEmpty(version)
+                                ? "Pacote encontrado online no repositório global do Windows. Instalação silenciosa de 1 clique."
+                                : $"Pacote encontrado online no repositório global do Windows (Versão: {version}). Instalação silenciosa de 1 clique."
+                        });
                     }
                 }
                 catch { }

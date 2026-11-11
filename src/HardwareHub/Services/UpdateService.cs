@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -15,6 +17,9 @@ namespace HardwareHub.Services
         public string LatestVersion { get; set; } = "";
         public string Changelog { get; set; } = "";
         public string DownloadUrl { get; set; } = "";
+        public string AssetName { get; set; } = "";
+        public string Sha256SumsUrl { get; set; } = "";
+        public string ErrorMessage { get; set; } = "";
         public long AssetSizeBytes { get; set; }
         public string FormattedSize => AssetSizeBytes > 0 ? $"{AssetSizeBytes / (1024.0 * 1024.0):F1} MB" : "";
     }
@@ -59,11 +64,20 @@ namespace HardwareHub.Services
                 CurrentVersion = GetCurrentVersion().ToString(3)
             };
 
+            if (!NetworkInterface.GetIsNetworkAvailable())
+            {
+                info.ErrorMessage = "Sem conexão com a internet no momento.";
+                return info;
+            }
+
             try
             {
                 var response = await _httpClient.GetAsync(GitHubApiUrl);
                 if (!response.IsSuccessStatusCode)
                 {
+                    info.ErrorMessage = response.StatusCode == System.Net.HttpStatusCode.NotFound
+                        ? "Nenhuma release publicada encontrada no GitHub."
+                        : $"Servidor de atualizações retornou HTTP {(int)response.StatusCode}.";
                     return info;
                 }
 
@@ -88,17 +102,21 @@ namespace HardwareHub.Services
                 info.LatestVersion = cleanTag;
                 info.Changelog = root.TryGetProperty("body", out var bodyEl) ? (bodyEl.GetString() ?? "") : "";
 
-                // Procura o executável anexado na release
+                // Procura o executável e o manifesto SHA256SUMS.txt anexados na release
                 if (root.TryGetProperty("assets", out var assetsEl) && assetsEl.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var asset in assetsEl.EnumerateArray())
                     {
                         string name = asset.GetProperty("name").GetString() ?? "";
-                        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        if (string.IsNullOrEmpty(info.DownloadUrl) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         {
+                            info.AssetName = name;
                             info.DownloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
                             info.AssetSizeBytes = asset.GetProperty("size").GetInt64();
-                            break;
+                        }
+                        else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            info.Sha256SumsUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
                         }
                     }
                 }
@@ -108,10 +126,20 @@ namespace HardwareHub.Services
                     info.IsAvailable = true;
                 }
             }
-            catch
+            catch (TaskCanceledException)
             {
-                // Falha de rede ou repositório sem releases ainda
                 info.IsAvailable = false;
+                info.ErrorMessage = "Tempo limite esgotado ao consultar atualizações.";
+            }
+            catch (HttpRequestException ex)
+            {
+                info.IsAvailable = false;
+                info.ErrorMessage = $"Falha de rede ao consultar atualizações: {ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                info.IsAvailable = false;
+                info.ErrorMessage = $"Falha ao verificar atualizações: {ex.Message}";
             }
 
             return info;
@@ -134,7 +162,12 @@ namespace HardwareHub.Services
             uiLog?.Invoke(msg);
         }
 
-        public async Task DownloadAndInstallUpdateAsync(string downloadUrl, IProgress<double> progress, Action<string>? log = null)
+        public async Task DownloadAndInstallUpdateAsync(
+            string downloadUrl,
+            IProgress<double> progress,
+            Action<string>? log = null,
+            string? sha256SumsUrl = null,
+            string? expectedAssetName = null)
         {
             WriteUpdateLog("=========================================================", log);
             WriteUpdateLog("INICIO DO PROCESSO DE ATUALIZACAO", log);
@@ -211,135 +244,13 @@ namespace HardwareHub.Services
 
             log?.Invoke("[ATUALIZAÇÃO] Download verificado. Criando script de substituição...");
 
-            // ═══════════════════ SCRIPT DE ATUALIZAÇÃO (BATCH) ═══════════════════
-            // Usa .cmd ao invés de PowerShell porque:
-            // 1. Batch NUNCA é bloqueado por ExecutionPolicy (comum no Windows 10 corporativo)
-            // 2. Usa "ping" para delays ao invés de "timeout" (que falha em janelas ocultas/não-interativas)
-            // 3. Funciona em TODAS as versões do Windows sem dependência de runtime
-
-            string updaterCmd = Path.Combine(Path.GetTempPath(), "HardwareHub_Updater.ps1");
+            // ═══════════════════ SCRIPT DE ATUALIZAÇÃO (POWERSHELL) ═══════════════════
+            // Os caminhos são codificados em Base64 para preservar acentos, espaços,
+            // aspas simples e quaisquer caracteres do perfil do usuário.
+            string updaterPs1 = Path.Combine(Path.GetTempPath(), "HardwareHub_Updater.ps1");
             int currentPid = Environment.ProcessId;
             string oldExePath = currentExePath + ".old";
 
-            string batContent = $@"@echo off
-setlocal EnableDelayedExpansion
-
-set ""LOGFILE={UpdateLogPath}""
-set ""SRC={tempUpdateExe}""
-set ""DST={currentExePath}""
-set ""OLD={oldExePath}""
-set ""APPPID={currentPid}""
-
-echo [%date% %time%] [BAT] ================================================= >> ""%LOGFILE%""
-echo [%date% %time%] [BAT] SCRIPT DE ATUALIZACAO INICIADO >> ""%LOGFILE%""
-echo [%date% %time%] [BAT] PID do app: %APPPID% >> ""%LOGFILE%""
-echo [%date% %time%] [BAT] Arquivo novo: %SRC% >> ""%LOGFILE%""
-echo [%date% %time%] [BAT] Destino: %DST% >> ""%LOGFILE%""
-
-REM ====== 1. AGUARDA O PROCESSO ENCERRAR (polling com tasklist) ======
-echo [%date% %time%] [BAT] Aguardando processo %APPPID% encerrar... >> ""%LOGFILE%""
-set /a waitcount=0
-:waitloop
-tasklist /FI ""PID eq %APPPID%"" 2>nul | find ""%APPPID%"" >nul 2>&1
-if not errorlevel 1 (
-    set /a waitcount+=1
-    echo [%date% %time%] [BAT] Processo %APPPID% ainda ativo ^(tentativa !waitcount!^) >> ""%LOGFILE%""
-    if !waitcount! gtr 60 (
-        echo [%date% %time%] [BAT] AVISO: Forcando encerramento do processo %APPPID% >> ""%LOGFILE%""
-        taskkill /F /PID %APPPID% >nul 2>&1
-    )
-    ping 127.0.0.1 -n 2 >nul
-    goto waitloop
-)
-echo [%date% %time%] [BAT] Processo %APPPID% encerrado com sucesso >> ""%LOGFILE%""
-
-REM Aguarda handles serem liberados pelo SO
-ping 127.0.0.1 -n 4 >nul
-echo [%date% %time%] [BAT] Aguardou 3 segundos adicionais para liberacao de handles >> ""%LOGFILE%""
-
-REM ====== 2. VERIFICA QUE O ARQUIVO BAIXADO EXISTE ======
-if not exist ""%SRC%"" (
-    echo [%date% %time%] [BAT] ERRO CRITICO: Arquivo fonte nao encontrado: %SRC% >> ""%LOGFILE%""
-    goto endscript
-)
-echo [%date% %time%] [BAT] Arquivo fonte verificado: %SRC% >> ""%LOGFILE%""
-
-REM ====== 3. RENOMEIA O EXECUTAVEL ANTIGO (seguro em NTFS) ======
-if exist ""%OLD%"" (
-    del /f /q ""%OLD%"" >nul 2>&1
-    echo [%date% %time%] [BAT] Removido .old anterior >> ""%LOGFILE%""
-)
-
-if exist ""%DST%"" (
-    echo [%date% %time%] [BAT] Tentando renomear executavel antigo para .old... >> ""%LOGFILE%""
-    move /y ""%DST%"" ""%OLD%"" >nul 2>&1
-    if errorlevel 1 (
-        echo [%date% %time%] [BAT] AVISO: Rename falhou, tentando copiar diretamente sobre o arquivo... >> ""%LOGFILE%""
-    ) else (
-        echo [%date% %time%] [BAT] Executavel antigo renomeado para .old >> ""%LOGFILE%""
-    )
-)
-
-REM ====== 4. COPIA O NOVO EXECUTAVEL (com retentativas) ======
-set /a tentativa=0
-:copyloop
-set /a tentativa+=1
-echo [%date% %time%] [BAT] Tentativa !tentativa! de copiar novo executavel... >> ""%LOGFILE%""
-
-copy /y ""%SRC%"" ""%DST%"" >nul 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] [BAT] FALHA na tentativa !tentativa! >> ""%LOGFILE%""
-    if !tentativa! lss 30 (
-        ping 127.0.0.1 -n 3 >nul
-        goto copyloop
-    )
-    echo [%date% %time%] [BAT] ERRO CRITICO: Nao foi possivel copiar apos 30 tentativas >> ""%LOGFILE%""
-    REM Restaura o executavel antigo se possivel
-    if exist ""%OLD%"" (
-        echo [%date% %time%] [BAT] Restaurando executavel antigo... >> ""%LOGFILE%""
-        move /y ""%OLD%"" ""%DST%"" >nul 2>&1
-    )
-    goto endscript
-)
-
-echo [%date% %time%] [BAT] SUCESSO: Novo executavel copiado na tentativa !tentativa! >> ""%LOGFILE%""
-
-REM ====== 5. VERIFICA QUE O ARQUIVO FOI COPIADO ======
-if not exist ""%DST%"" (
-    echo [%date% %time%] [BAT] ERRO: Arquivo destino nao existe apos a copia! >> ""%LOGFILE%""
-    if exist ""%OLD%"" move /y ""%OLD%"" ""%DST%"" >nul 2>&1
-    goto endscript
-)
-echo [%date% %time%] [BAT] Arquivo destino confirmado no disco >> ""%LOGFILE%""
-
-REM ====== 6. INICIA A NOVA VERSAO ======
-ping 127.0.0.1 -n 2 >nul
-echo [%date% %time%] [BAT] Iniciando nova versao: %DST% >> ""%LOGFILE%""
-for %%I in (""%DST%"") do set ""APPDIR=%%~dpI""
-cd /d ""!APPDIR!""
-start """" /d ""!APPDIR!"" ""%DST%""
-if errorlevel 1 (
-    echo [%date% %time%] [BAT] AVISO: start direto falhou, tentando fallback com explorer... >> ""%LOGFILE%""
-    explorer.exe ""%DST%""
-)
-echo [%date% %time%] [BAT] Comando de inicio executado >> ""%LOGFILE%""
-
-REM ====== 7. LIMPEZA ======
-:endscript
-ping 127.0.0.1 -n 4 >nul
-echo [%date% %time%] [BAT] Limpando arquivos temporarios... >> ""%LOGFILE%""
-del /f /q ""%SRC%"" >nul 2>&1
-if exist ""%OLD%"" del /f /q ""%OLD%"" >nul 2>&1
-echo [%date% %time%] [BAT] === SCRIPT DE ATUALIZACAO FINALIZADO === >> ""%LOGFILE%""
-REM Auto-deleta o script
-(goto) 2>nul & del /f /q ""%~f0""
-";
-
-            _ = batContent; // Mantém compatibilidade com logs de versões anteriores.
-
-            // PowerShell 5.1 no Windows 10 lê corretamente scripts UTF-8 com BOM.
-            // Os caminhos são codificados em Base64 para preservar acentos, espaços,
-            // aspas simples e quaisquer caracteres do perfil do usuário.
             string ToBase64(string value) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value));
             string psContent = $@"$ErrorActionPreference = 'Stop'
 $log = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{ToBase64(UpdateLogPath)}'))
@@ -390,26 +301,26 @@ try {{
 }}
 ";
 
-            WriteUpdateLog($"Escrevendo script de atualizacao em: {updaterCmd}", log);
-            File.WriteAllText(updaterCmd, psContent, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            WriteUpdateLog($"Escrevendo script de atualizacao em: {updaterPs1}", log);
+            File.WriteAllText(updaterPs1, psContent, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
             // Verifica que o script foi criado
-            if (!File.Exists(updaterCmd))
+            if (!File.Exists(updaterPs1))
             {
-                WriteUpdateLog("ERRO CRITICO: Script .cmd nao foi criado no disco!", log);
+                WriteUpdateLog("ERRO CRITICO: Script PowerShell de atualização não foi criado no disco!", log);
                 throw new InvalidOperationException("Falha ao criar script de atualização.");
             }
-            WriteUpdateLog($"Script criado com sucesso ({new FileInfo(updaterCmd).Length} bytes)", log);
+            WriteUpdateLog($"Script criado com sucesso ({new FileInfo(updaterPs1).Length} bytes)", log);
 
             // ═══════════════════ INICIA O SCRIPT COM ELEVAÇÃO TOTAL ═══════════════════
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{updaterCmd}\"",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{updaterPs1}\"",
                 UseShellExecute = true,      // Executa de forma desacoplada
                 Verb = "runas",              // Garante permissões administrativas
                 WindowStyle = ProcessWindowStyle.Hidden,
-                WorkingDirectory = Path.GetDirectoryName(updaterCmd) ?? ""
+                WorkingDirectory = Path.GetDirectoryName(updaterPs1) ?? ""
             };
 
             WriteUpdateLog("Iniciando script de atualizacao com elevacao...", log);
@@ -451,6 +362,34 @@ try {{
             catch { }
 
             Environment.Exit(0);
+        }
+
+        private async Task<string?> FetchExpectedSha256Async(string sha256SumsUrl, string assetName, Action<string>? log)
+        {
+            try
+            {
+                string body = await _httpClient.GetStringAsync(sha256SumsUrl);
+                foreach (string rawLine in body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string line = rawLine.Trim();
+                    var parts = Regex.Split(line, @"\s+");
+                    if (parts.Length >= 2 && parts[0].Length == 64)
+                    {
+                        string listedName = parts[^1].TrimStart('*');
+                        if (listedName.Equals(assetName, StringComparison.OrdinalIgnoreCase) ||
+                            Path.GetFileName(listedName).Equals(assetName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return parts[0];
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteUpdateLog($"AVISO: Não foi possível obter SHA256SUMS.txt ({ex.Message}).", log);
+            }
+
+            return null;
         }
     }
 }

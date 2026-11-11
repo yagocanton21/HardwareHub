@@ -887,6 +887,10 @@ namespace HardwareHub.ViewModels
                     {
                         AppendLog($"[ATUALIZAÇÃO] Nova versão detectada: v{update.LatestVersion} ({update.FormattedSize}). Clique no banner 'Atualizar' para instalar.");
                     }
+                    else if (!string.IsNullOrEmpty(update.ErrorMessage) && !silent)
+                    {
+                        AppendLog($"[ATUALIZAÇÃO] {update.ErrorMessage}");
+                    }
                     else if (!silent)
                     {
                         AppendLog($"[ATUALIZAÇÃO] Você já está executando a versão mais recente (v{update.CurrentVersion}).");
@@ -923,10 +927,12 @@ namespace HardwareHub.ViewModels
             try
             {
                 AppendLog($"[ATUALIZAÇÃO] Baixando instalador da versão v{_availableUpdate.LatestVersion}...");
-                await _updateService.DownloadAndInstallUpdateAsync(_availableUpdate.DownloadUrl, progress, msg =>
-                {
-                    System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg));
-                });
+                await _updateService.DownloadAndInstallUpdateAsync(
+                    _availableUpdate.DownloadUrl,
+                    progress,
+                    msg => System.Windows.Application.Current?.Dispatcher.Invoke(() => AppendLog(msg)),
+                    _availableUpdate.Sha256SumsUrl,
+                    _availableUpdate.AssetName);
             }
             catch (Exception ex)
             {
