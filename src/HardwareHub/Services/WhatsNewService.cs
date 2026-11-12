@@ -127,13 +127,15 @@ namespace HardwareHub.Services
         }
 
         /// <summary>
-        /// Verifica se a versão atual é superior à última versão executada em %LocalAppData%\HardwareHub\ultima-versao.txt.
+        /// Verifica se a versão atual é superior à última versão executada em %LocalAppData%\HardwareHub\ultima-versao.txt,
+        /// ou se o atualizador acabou de reiniciar a partir de uma versão antiga sem o marcador.
         /// Sempre atualiza o marcador para a versão corrente.
         /// </summary>
         public PostUpdateCheckResult CheckAndMarkPostUpdate(
             string? versionFilePath = null,
             Version? currentVersionOverride = null,
-            IReadOnlyList<VersionReleaseNotes>? notesOverride = null)
+            IReadOnlyList<VersionReleaseNotes>? notesOverride = null,
+            string? updateLogPath = null)
         {
             string markerPath = string.IsNullOrWhiteSpace(versionFilePath)
                 ? DefaultVersionMarkerPath
@@ -172,14 +174,17 @@ namespace HardwareHub.Services
                 // Ignora falhas de permissão ao gravar marcador
             }
 
-            bool wasUpdated = previous != null && previous < current;
+            bool upgradedFromLegacyExe = previous == null && IsRecentAutoUpdate(updateLogPath ?? UpdateService.UpdateLogPath);
+            bool wasUpdated = (previous != null && previous < current) || upgradedFromLegacyExe;
             var versionsToShow = new List<VersionReleaseNotes>();
 
-            if (wasUpdated && previous != null)
+            if (wasUpdated)
             {
                 var allNotes = (notesOverride ?? LoadEmbeddedNotes()).ToList();
                 versionsToShow = allNotes
-                    .Where(n => TryParseNormalizedVersion(n.Version, out var nv) && nv > previous && nv <= current)
+                    .Where(n => TryParseNormalizedVersion(n.Version, out var nv) &&
+                                nv <= current &&
+                                (previous == null || nv > previous))
                     .OrderByDescending(n => TryParseNormalizedVersion(n.Version, out var nv) ? nv : new Version(0, 0, 0))
                     .Take(3)
                     .ToList();
@@ -207,6 +212,22 @@ namespace HardwareHub.Services
                 CurrentVersion = current,
                 VersionsToShow = versionsToShow
             };
+        }
+
+        private static bool IsRecentAutoUpdate(string? logPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(logPath) || !File.Exists(logPath))
+                    return false;
+
+                var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(logPath);
+                return age >= TimeSpan.FromSeconds(-5) && age <= TimeSpan.FromMinutes(3);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>

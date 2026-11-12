@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.0.28",
+    "data": "12/11/2026",
+    "novidades": [
+      "Exibição automática da janela 'O que há de novo' mesmo ao atualizar a partir de versões antigas (como v1.0.10 a v1.0.25)"
+    ],
+    "melhorias": [
+      "Detecção automática de atualização recém-aplicada via log do atualizador caso o marcador de versão ainda não exista"
+    ],
+    "correcoes": [
+      "Garantido que qualquer usuário que clique em Atualizar veja o resumo das mudanças logo após o reinício"
+    ]
+  },
+  {
     "versao": "1.0.27",
     "data": "11/11/2026",
     "novidades": [

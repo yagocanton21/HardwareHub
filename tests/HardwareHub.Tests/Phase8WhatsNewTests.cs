@@ -22,7 +22,7 @@ namespace HardwareHub.Tests
             var notes = service.LoadEmbeddedNotes();
 
             Assert.NotEmpty(notes);
-            Assert.Equal("1.0.27", notes[0].Version);
+            Assert.Equal("1.0.28", notes[0].Version);
             Assert.True(notes[0].IsCurrentVersion);
             Assert.NotEmpty(notes[0].Novidades);
             Assert.NotEmpty(notes[0].Melhorias);
@@ -62,28 +62,59 @@ namespace HardwareHub.Tests
             var service = new WhatsNewService();
             string tempDir = Path.Combine(Path.GetTempPath(), $"hw_whatsnew_{Guid.NewGuid():N}");
             string markerPath = Path.Combine(tempDir, "ultima-versao.txt");
+            string missingUpdateLog = Path.Combine(tempDir, "nao-existe-update.log");
 
             try
             {
-                // 1. Primeira execução (sem arquivo): grava 1.0.27 e não dispara popup
-                var firstRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 27));
+                // 1. Primeira execução (sem arquivo e sem log recente de update): grava 1.0.28 e não dispara popup
+                var firstRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 28), updateLogPath: missingUpdateLog);
                 Assert.False(firstRun.WasUpdated);
                 Assert.True(File.Exists(markerPath));
-                Assert.Equal("1.0.27", File.ReadAllText(markerPath).Trim());
+                Assert.Equal("1.0.28", File.ReadAllText(markerPath).Trim());
 
-                // 2. Simula upgrade vindo da 1.0.25 para 1.0.27
-                File.WriteAllText(markerPath, "1.0.25");
-                var upgradedRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 27));
+                // 2. Simula upgrade vindo da 1.0.26 para 1.0.28
+                File.WriteAllText(markerPath, "1.0.26");
+                var upgradedRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 28), updateLogPath: missingUpdateLog);
 
                 Assert.True(upgradedRun.WasUpdated);
-                Assert.Equal(new Version(1, 0, 25), upgradedRun.PreviousVersion);
-                Assert.Equal(new Version(1, 0, 27), upgradedRun.CurrentVersion);
-                Assert.Equal("1.0.27", File.ReadAllText(markerPath).Trim());
-                Assert.Equal(new[] { "1.0.27", "1.0.26" }, upgradedRun.VersionsToShow.Select(v => v.Version).ToArray());
+                Assert.Equal(new Version(1, 0, 26), upgradedRun.PreviousVersion);
+                Assert.Equal(new Version(1, 0, 28), upgradedRun.CurrentVersion);
+                Assert.Equal("1.0.28", File.ReadAllText(markerPath).Trim());
+                Assert.Equal(new[] { "1.0.28", "1.0.27" }, upgradedRun.VersionsToShow.Select(v => v.Version).ToArray());
 
                 // 3. Reabertura na mesma versão: não repete popup
-                var repeatedRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 27));
+                var repeatedRun = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 28), updateLogPath: missingUpdateLog);
                 Assert.False(repeatedRun.WasUpdated);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void CheckAndMarkPostUpdate_ShowsPopupWhenUpgradingFromLegacyExeWithoutMarkerFile()
+        {
+            var service = new WhatsNewService();
+            string tempDir = Path.Combine(Path.GetTempPath(), $"hw_whatsnew_legacy_{Guid.NewGuid():N}");
+            string markerPath = Path.Combine(tempDir, "ultima-versao.txt");
+            string updateLogPath = Path.Combine(tempDir, "HardwareHub_Update.log");
+
+            try
+            {
+                Directory.CreateDirectory(tempDir);
+                File.WriteAllText(updateLogPath, "[PS] SUCESSO: executavel atualizado.");
+
+                // Sem ultima-versao.txt (ex: usuário estava na v1.0.10), mas com HardwareHub_Update.log recente
+                var result = service.CheckAndMarkPostUpdate(markerPath, new Version(1, 0, 28), updateLogPath: updateLogPath);
+
+                Assert.True(result.WasUpdated);
+                Assert.Null(result.PreviousVersion);
+                Assert.Equal(new Version(1, 0, 28), result.CurrentVersion);
+                Assert.Equal("1.0.28", result.VersionsToShow[0].Version);
+                Assert.True(result.VersionsToShow.Count <= 3);
+                Assert.Equal("1.0.28", File.ReadAllText(markerPath).Trim());
             }
             finally
             {
@@ -101,26 +132,26 @@ namespace HardwareHub.Tests
             vm.SyncPendingUpdate(new UpdateInfo
             {
                 IsAvailable = true,
-                CurrentVersion = "1.0.27",
-                LatestVersion = "1.0.28",
+                CurrentVersion = "1.0.28",
+                LatestVersion = "1.0.29",
                 AssetSizeBytes = 15_728_640,
                 Changelog = "## Correções\n- Corrigida detecção de NVMe USB"
             });
 
             Assert.True(vm.HasPendingUpdate);
-            Assert.Equal("Nova versão v1.0.28 disponível!", vm.PendingVersionTitle);
+            Assert.Equal("Nova versão v1.0.29 disponível!", vm.PendingVersionTitle);
             Assert.NotNull(vm.PendingUpdateNotes);
             Assert.Contains("Corrigida detecção de NVMe USB", vm.PendingUpdateNotes!.Correcoes);
 
             vm.SyncPendingUpdate(new UpdateInfo
             {
                 IsAvailable = false,
-                CurrentVersion = "1.0.27",
-                LatestVersion = "1.0.27"
+                CurrentVersion = "1.0.28",
+                LatestVersion = "1.0.28"
             });
 
             Assert.False(vm.HasPendingUpdate);
-            Assert.Contains("v1.0.27", vm.UpdateStatusMessage);
+            Assert.Contains("v1.0.28", vm.UpdateStatusMessage);
         }
 
         [Fact]
