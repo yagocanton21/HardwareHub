@@ -549,7 +549,7 @@ namespace HardwareHub.Services
 
         private static async Task<double?> ProbeDnsUdpAsync(IPAddress server, string domain, CancellationToken ct)
         {
-            using var udp = new UdpClient(AddressFamily.InterNetwork);
+            using var udp = new UdpClient(server.AddressFamily);
             var endPoint = new IPEndPoint(server, 53);
             ushort id = (ushort)Random.Shared.Next(1, 65535);
             byte[] payload = BuildDnsQueryPacket(id, domain);

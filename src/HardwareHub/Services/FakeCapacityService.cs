@@ -389,12 +389,15 @@ namespace HardwareHub.Services
             catch (OperationCanceledException)
             {
                 report.Verdict = FakeCapacityVerdict.Inconclusive;
+                report.RealBytes = 0;
                 report.ErrorMessage = "Teste cancelado pelo usuário.";
             }
             catch (Exception ex)
             {
-                report.Verdict = FakeCapacityVerdict.Inconclusive;
-                report.ErrorMessage = ex.Message;
+                var (verdict, friendlyMsg) = TranslateException(ex);
+                report.Verdict = verdict;
+                report.RealBytes = 0;
+                report.ErrorMessage = friendlyMsg;
             }
             finally
             {
@@ -548,12 +551,15 @@ namespace HardwareHub.Services
             catch (OperationCanceledException)
             {
                 report.Verdict = FakeCapacityVerdict.Inconclusive;
+                report.RealBytes = 0;
                 report.ErrorMessage = "Teste cancelado.";
             }
             catch (Exception ex)
             {
-                report.Verdict = FakeCapacityVerdict.Inconclusive;
-                report.ErrorMessage = ex.Message;
+                var (verdict, friendlyMsg) = TranslateException(ex);
+                report.Verdict = verdict;
+                report.RealBytes = 0;
+                report.ErrorMessage = friendlyMsg;
             }
             finally
             {
@@ -609,6 +615,66 @@ namespace HardwareHub.Services
                 a = t;
             }
             return Math.Abs(a);
+        }
+
+        internal static (FakeCapacityVerdict Verdict, string ErrorMessage) TranslateException(Exception ex)
+        {
+            string msg = ex.Message ?? string.Empty;
+            int hr = ex.HResult;
+
+            bool isIoFault = ex is IOException ||
+                             msg.Contains("paginação", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("paging", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("inpage", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("E/S", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("I/O", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("CRC", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("semáforo", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("pronto", StringComparison.OrdinalIgnoreCase) ||
+                             msg.Contains("não foi possível encontrar", StringComparison.OrdinalIgnoreCase) ||
+                             hr == unchecked((int)0x800703E7) || // ERROR_SWAPERROR / ERROR_INPAGE
+                             hr == unchecked((int)0x8007045D) || // ERROR_IO_DEVICE
+                             hr == unchecked((int)0x80070017) || // ERROR_CRC
+                             hr == unchecked((int)0x8007048F) || // ERROR_DEVICE_NOT_CONNECTED
+                             hr == unchecked((int)0x80070015) || // ERROR_NOT_READY
+                             hr == unchecked((int)0x80070079);   // ERROR_SEM_TIMEOUT
+
+            if (!isIoFault)
+            {
+                return (FakeCapacityVerdict.Inconclusive, string.IsNullOrWhiteSpace(msg) ? "Erro desconhecido durante o teste." : msg);
+            }
+
+            string friendly;
+            if (msg.Contains("paginação", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("paging", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("inpage", StringComparison.OrdinalIgnoreCase) ||
+                hr == unchecked((int)0x800703E7))
+            {
+                friendly = "Falha de hardware no pendrive: a memória flash travou ou possui setores defeituosos (bad blocks) que impedem a gravação.";
+            }
+            else if (msg.Contains("CRC", StringComparison.OrdinalIgnoreCase) || hr == unchecked((int)0x80070017))
+            {
+                friendly = "Erro de redundância cíclica (CRC): os dados gravados foram corrompidos pela memória flash da unidade.";
+            }
+            else if (msg.Contains("não conectado", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("não está pronto", StringComparison.OrdinalIgnoreCase) ||
+                     hr == unchecked((int)0x8007048F) || hr == unchecked((int)0x80070015))
+            {
+                friendly = "A unidade USB desconectou ou reiniciou inesperadamente durante o teste.";
+            }
+            else if (msg.Contains("semáforo", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                     hr == unchecked((int)0x80070079))
+            {
+                friendly = "Tempo limite esgotado: o pendrive congelou ao responder às operações de escrita.";
+            }
+            else
+            {
+                friendly = "Falha de comunicação ou dano físico na unidade de armazenamento.";
+            }
+
+            return (FakeCapacityVerdict.Defective, friendly);
         }
     }
 }

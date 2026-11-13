@@ -221,12 +221,12 @@ public sealed class AppCatalogService
 
         if (!string.IsNullOrWhiteSpace(program.AppxPackage))
         {
-            string packagesDir = localAppDataPackagesPath ?? Path.Combine(
+            string appxPackagesDir = localAppDataPackagesPath ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Packages");
 
-            if (Directory.Exists(packagesDir) &&
-                Directory.EnumerateDirectories(packagesDir, program.AppxPackage + "_*").Any())
+            if (Directory.Exists(appxPackagesDir) &&
+                Directory.EnumerateDirectories(appxPackagesDir, program.AppxPackage + "_*").Any())
             {
                 return true;
             }
@@ -257,8 +257,38 @@ public sealed class AppCatalogService
                 n.Contains("(x64)", StringComparison.OrdinalIgnoreCase));
         }
 
-        return installedRegistryNames.Any(n =>
-            n.StartsWith(program.InstalledName, StringComparison.OrdinalIgnoreCase));
+        if (installedRegistryNames.Any(n =>
+            n.StartsWith(program.InstalledName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Programas portáteis instalados via Winget não gravam na chave Uninstall do Registro,
+        // mas criam um executável ou link em %LOCALAPPDATA%\Microsoft\WinGet\Links ou Packages.
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string linksDir = Path.Combine(localAppData, "Microsoft", "WinGet", "Links");
+        if (Directory.Exists(linksDir))
+        {
+            if (File.Exists(Path.Combine(linksDir, $"{program.Id}.exe"))) return true;
+            if (Directory.EnumerateFiles(linksDir, "*.exe")
+                .Any(f => Path.GetFileNameWithoutExtension(f).Contains(program.Id, StringComparison.OrdinalIgnoreCase) ||
+                          (!string.IsNullOrWhiteSpace(program.Name) && Path.GetFileNameWithoutExtension(f).Contains(program.Name, StringComparison.OrdinalIgnoreCase))))
+            {
+                return true;
+            }
+        }
+
+        string packagesDir = Path.Combine(localAppData, "Microsoft", "WinGet", "Packages");
+        if (Directory.Exists(packagesDir) && !string.IsNullOrWhiteSpace(program.WingetId))
+        {
+            if (Directory.EnumerateDirectories(packagesDir, $"{program.WingetId}_*").Any() ||
+                Directory.EnumerateDirectories(packagesDir, $"*{program.WingetId}*").Any())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -309,6 +339,7 @@ public sealed class AppCatalogService
 
         if (outcome.Success)
         {
+            EnsureStartMenuShortcutForPackage(program);
             string langSummary = ApplyPostInstallLanguageActions(program);
             if (!string.IsNullOrWhiteSpace(langSummary))
             {
@@ -435,6 +466,155 @@ public sealed class AppCatalogService
         }
 
         return errors.Count == 0 ? "em português" : $"idioma: {string.Join("; ", errors)}";
+    }
+
+    /// <summary>
+    /// Garante que programas portáteis instalados pelo Winget (como Rufus) tenham um atalho no Menu Iniciar.
+    /// </summary>
+    public static bool EnsureStartMenuShortcutForPackage(AppPackageDefinition program)
+    {
+        try
+        {
+            string userPrograms = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
+            string commonPrograms = Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms);
+            string safeName = string.IsNullOrWhiteSpace(program.Name) ? program.Id : program.Name;
+            string targetLnk = Path.Combine(userPrograms, $"{safeName}.lnk");
+
+            if (File.Exists(targetLnk) || File.Exists(Path.Combine(commonPrograms, $"{safeName}.lnk")))
+            {
+                return true;
+            }
+
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string linksDir = Path.Combine(localAppData, "Microsoft", "WinGet", "Links");
+            string packagesDir = Path.Combine(localAppData, "Microsoft", "WinGet", "Packages");
+
+            string? targetExe = null;
+            if (Directory.Exists(linksDir))
+            {
+                string candidate = Path.Combine(linksDir, $"{program.Id}.exe");
+                if (File.Exists(candidate))
+                {
+                    targetExe = candidate;
+                }
+                else
+                {
+                    targetExe = Directory.EnumerateFiles(linksDir, "*.exe")
+                        .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals(program.Id, StringComparison.OrdinalIgnoreCase) ||
+                                             Path.GetFileNameWithoutExtension(f).Equals(safeName, StringComparison.OrdinalIgnoreCase) ||
+                                             Path.GetFileNameWithoutExtension(f).Contains(program.Id, StringComparison.OrdinalIgnoreCase) ||
+                                             Path.GetFileNameWithoutExtension(f).Contains(safeName, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            if (targetExe == null && Directory.Exists(packagesDir) && !string.IsNullOrWhiteSpace(program.WingetId))
+            {
+                string pkgPrefix = program.WingetId + "_";
+                var pkgDir = Directory.EnumerateDirectories(packagesDir)
+                    .FirstOrDefault(d => Path.GetFileName(d).StartsWith(pkgPrefix, StringComparison.OrdinalIgnoreCase) ||
+                                         Path.GetFileName(d).Contains(program.WingetId, StringComparison.OrdinalIgnoreCase));
+                if (pkgDir != null)
+                {
+                    var allExes = Directory.EnumerateFiles(pkgDir, "*.exe", SearchOption.AllDirectories)
+                        .Where(e => !Path.GetFileName(e).StartsWith("unins", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    targetExe = allExes.FirstOrDefault(e => Path.GetFileName(e).Contains(program.Id, StringComparison.OrdinalIgnoreCase) ||
+                                                            Path.GetFileName(e).Contains(safeName, StringComparison.OrdinalIgnoreCase))
+                                ?? allExes.FirstOrDefault();
+                }
+            }
+
+            if (targetExe != null && File.Exists(targetExe))
+            {
+                Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+                if (shellType != null)
+                {
+                    object? shell = Activator.CreateInstance(shellType);
+                    if (shell != null)
+                    {
+                        dynamic dynShell = shell;
+                        dynamic shortcut = dynShell.CreateShortcut(targetLnk);
+                        shortcut.TargetPath = targetExe;
+                        shortcut.WorkingDirectory = Path.GetDirectoryName(targetExe);
+                        shortcut.Description = program.Description ?? safeName;
+                        shortcut.Save();
+                        if (Marshal.IsComObject(shortcut)) Marshal.FinalReleaseComObject(shortcut);
+                        if (Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell);
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Tenta iniciar um programa instalado via atalho do Menu Iniciar ou executável direto.
+    /// </summary>
+    public static bool TryLaunchProgram(AppPackageDefinition program)
+    {
+        try
+        {
+            string safeName = string.IsNullOrWhiteSpace(program.Name) ? program.Id : program.Name;
+            string userPrograms = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
+            string commonPrograms = Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms);
+
+            string userLnk = Path.Combine(userPrograms, $"{safeName}.lnk");
+            if (File.Exists(userLnk))
+            {
+                Process.Start(new ProcessStartInfo(userLnk) { UseShellExecute = true });
+                return true;
+            }
+
+            string commonLnk = Path.Combine(commonPrograms, $"{safeName}.lnk");
+            if (File.Exists(commonLnk))
+            {
+                Process.Start(new ProcessStartInfo(commonLnk) { UseShellExecute = true });
+                return true;
+            }
+
+            string? foundLnk = Directory.EnumerateFiles(userPrograms, "*.lnk", SearchOption.AllDirectories)
+                .Concat(Directory.EnumerateFiles(commonPrograms, "*.lnk", SearchOption.AllDirectories))
+                .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Contains(safeName, StringComparison.OrdinalIgnoreCase) ||
+                                     Path.GetFileNameWithoutExtension(f).Contains(program.Id, StringComparison.OrdinalIgnoreCase));
+            if (foundLnk != null)
+            {
+                Process.Start(new ProcessStartInfo(foundLnk) { UseShellExecute = true });
+                return true;
+            }
+
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string linksDir = Path.Combine(localAppData, "Microsoft", "WinGet", "Links");
+            if (Directory.Exists(linksDir))
+            {
+                string cand = Path.Combine(linksDir, $"{program.Id}.exe");
+                if (File.Exists(cand))
+                {
+                    Process.Start(new ProcessStartInfo(cand) { UseShellExecute = true });
+                    return true;
+                }
+                var linkExe = Directory.EnumerateFiles(linksDir, "*.exe")
+                    .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Contains(program.Id, StringComparison.OrdinalIgnoreCase) ||
+                                         Path.GetFileNameWithoutExtension(f).Contains(safeName, StringComparison.OrdinalIgnoreCase));
+                if (linkExe != null)
+                {
+                    Process.Start(new ProcessStartInfo(linkExe) { UseShellExecute = true });
+                    return true;
+                }
+            }
+
+            Process.Start(new ProcessStartInfo(program.Id) { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static void WriteRegistryValue(string fullKey, string valueName, string kind, string rawData)

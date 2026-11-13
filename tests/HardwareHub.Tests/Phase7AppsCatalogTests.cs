@@ -219,5 +219,31 @@ public class Phase7AppsCatalogTests
         Assert.Contains("Git", optVm.SelectedKitPrograms);
         Assert.False(string.IsNullOrWhiteSpace(optVm.SelectedProfileSummary));
     }
+
+    [Fact]
+    public void CatalogPrograms_AuditWingetAndShortcutIntegrity()
+    {
+        var doc = AppCatalogService.LoadCatalog();
+        Assert.NotEmpty(doc.Programs);
+
+        foreach (var p in doc.Programs)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(p.Id), "ID do programa não pode ser vazio.");
+            Assert.False(string.IsNullOrWhiteSpace(p.Name), $"Nome do programa '{p.Id}' não pode ser vazio.");
+
+            if (!p.IsLink)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(p.WingetId), $"Programa '{p.Id}' deve ter WingetId configurado.");
+            }
+        }
+
+        // Testa que programas portáteis (como Rufus e Ventoy) são detectados e atalhos são garantidos
+        var rufusDef = doc.Programs.First(p => p.Id == "rufus");
+        bool rufusDetected = AppCatalogService.IsProgramInstalled(rufusDef, new HashSet<string>());
+        Assert.True(rufusDetected);
+
+        bool shortcutEnsured = AppCatalogService.EnsureStartMenuShortcutForPackage(rufusDef);
+        Assert.True(shortcutEnsured);
+    }
 }
 

@@ -1,5 +1,25 @@
 [
   {
+    "versao": "1.0.29",
+    "data": "13/11/2026",
+    "novidades": [
+      "Clock da CPU alinhado com o Gerenciador de Tarefas do Windows exibindo a frequência média operacional de todos os núcleos ativos",
+      "Tooltip informativo no cartão da CPU detalhando o clock médio e o pico no núcleo mais rápido em Turbo Boost",
+      "Suporte completo a aplicativos portáteis (Rufus, Ventoy) no Catálogo com botão 'Abrir' imediato e atalho no Menu Iniciar",
+      "Expurgo aprofundado do Cache da Otimização de Entrega do Windows (Delivery Optimization) com limpeza forçada de arquivos presos"
+    ],
+    "melhorias": [
+      "Detector de Capacidade Falsa agora traduz falhas de I/O e paginação como dispositivo defeituoso com orientação amigável",
+      "Atualizador Winget aprimorado com tratamento de códigos de reinicialização pendente e pacotes em uso",
+      "Benchmark de DNS com suporte completo a servidores e rotas IPv6",
+      "Otimização de Discos com orientação clara sobre SSDs e execução do comando TRIM nativo"
+    ],
+    "correcoes": [
+      "Corrigida inconsistência em que o Clock da CPU mostrava apenas o pico máximo do núcleo em turbo ao invés da frequência média operacional",
+      "Corrigido Cache da Otimização de Entrega que não liberava espaço de pacotes cacheados pelo Windows Update"
+    ]
+  },
+  {
     "versao": "1.0.28",
     "data": "12/11/2026",
     "novidades": [

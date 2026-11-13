@@ -369,68 +369,113 @@ namespace HardwareHub.Services
 
                     onProgress?.Invoke($"Limpando: {item.Titulo}...");
 
-                    if (item.Definition.Especial == "lixeira")
+                    var stoppedServices = new List<string>();
+                    foreach (var svc in item.Definition.Servicos)
                     {
-                        var before = QueryRecycleBin();
-                        int hr = SHEmptyRecycleBinW(nint.Zero, null, 0x00000001 | 0x00000002 | 0x00000004);
-                        if (hr == 0 || hr == unchecked((int)0x8000FFFF))
+                        try
                         {
-                            totalBytes += Math.Max(0, before.Bytes);
-                            totalFiles += before.FileCount;
-                            executed++;
-                            item.EstimatedBytes = 0;
-                            item.FileCount = 0;
-                        }
-                        else
-                        {
-                            errors.Add($"{item.Titulo}: código 0x{hr:X8}");
-                        }
-                        continue;
-                    }
-
-                    if (item.Definition.Especial == "dism-componentes")
-                    {
-                        var (exit, output) = RunTool("dism.exe", "/Online /Cleanup-Image /StartComponentCleanup", ct);
-                        if (exit == 0) executed++;
-                        else errors.Add($"{item.Titulo}: {output}");
-                        continue;
-                    }
-
-                    if (item.Definition.Especial != null && item.Definition.Especial.StartsWith("cleanmgr:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Segurança: não remove Windows.old se houver dados em Users
-                        if (item.Definition.Especial == "cleanmgr:Previous Installations")
-                        {
-                            var check = ScanRule(item.Definition);
-                            if (check.Note != null && check.Note.Contains("Windows.old\\Users", StringComparison.OrdinalIgnoreCase))
+                            var (queryExit, queryOut) = RunTool("sc.exe", $"query \"{svc}\"", ct);
+                            if (queryExit == 0 && queryOut.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
                             {
-                                item.Note = check.Note;
-                                continue;
+                                RunTool("net.exe", $"stop \"{svc}\" /y", ct);
+                                stoppedServices.Add(svc);
                             }
                         }
-
-                        long bytesHere = 0;
-                        int filesHere = 0;
-                        DeleteFilesForRule(item.Definition, ref bytesHere, ref filesHere, ct);
-                        totalBytes += bytesHere;
-                        totalFiles += filesHere;
-                        executed++;
-                        item.EstimatedBytes = 0;
-                        item.FileCount = 0;
-                        continue;
+                        catch { }
                     }
 
-                    if (item.Definition.Alvos.Count > 0)
+                    try
                     {
-                        long bytesHere = 0;
-                        int filesHere = 0;
-                        DeleteFilesForRule(item.Definition, ref bytesHere, ref filesHere, ct);
-                        totalBytes += bytesHere;
-                        totalFiles += filesHere;
-                        executed++;
-                        var after = ScanRule(item.Definition);
-                        item.EstimatedBytes = after.Bytes;
-                        item.FileCount = after.FileCount;
+                        if (item.Definition.Especial == "lixeira")
+                        {
+                            var before = QueryRecycleBin();
+                            int hr = SHEmptyRecycleBinW(nint.Zero, null, 0x00000001 | 0x00000002 | 0x00000004);
+                            if (hr == 0 || hr == unchecked((int)0x8000FFFF))
+                            {
+                                totalBytes += Math.Max(0, before.Bytes);
+                                totalFiles += before.FileCount;
+                                executed++;
+                                item.EstimatedBytes = 0;
+                                item.FileCount = 0;
+                            }
+                            else
+                            {
+                                errors.Add($"{item.Titulo}: código 0x{hr:X8}");
+                            }
+                            continue;
+                        }
+
+                        if (item.Definition.Especial == "dism-componentes")
+                        {
+                            var (exit, output) = RunTool("dism.exe", "/Online /Cleanup-Image /StartComponentCleanup", ct);
+                            if (exit == 0) executed++;
+                            else errors.Add($"{item.Titulo}: {output}");
+                            continue;
+                        }
+
+                        if (item.Definition.Especial == "otimizacao-entrega")
+                        {
+                            var before = ScanRule(item.Definition);
+                            RunTool("powershell.exe", "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Delete-DeliveryOptimizationCache -Force -IncludePinnedFiles\"", ct);
+
+                            long bytesHere = 0;
+                            int filesHere = 0;
+                            DeleteFilesForRule(item.Definition, ref bytesHere, ref filesHere, ct);
+
+                            var after = ScanRule(item.Definition);
+                            long freed = Math.Max(bytesHere, (before.Bytes > 0 && after.Bytes >= 0) ? before.Bytes - after.Bytes : 0);
+                            totalBytes += Math.Max(0, freed);
+                            totalFiles += Math.Max(filesHere, (before.FileCount > 0 && after.FileCount >= 0) ? before.FileCount - after.FileCount : 0);
+                            executed++;
+                            item.EstimatedBytes = after.Bytes;
+                            item.FileCount = after.FileCount;
+                            continue;
+                        }
+
+                        if (item.Definition.Especial != null && item.Definition.Especial.StartsWith("cleanmgr:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Segurança: não remove Windows.old se houver dados em Users
+                            if (item.Definition.Especial == "cleanmgr:Previous Installations")
+                            {
+                                var check = ScanRule(item.Definition);
+                                if (check.Note != null && check.Note.Contains("Windows.old\\Users", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    item.Note = check.Note;
+                                    continue;
+                                }
+                            }
+
+                            long bytesHere = 0;
+                            int filesHere = 0;
+                            DeleteFilesForRule(item.Definition, ref bytesHere, ref filesHere, ct);
+                            totalBytes += bytesHere;
+                            totalFiles += filesHere;
+                            executed++;
+                            var after = ScanRule(item.Definition);
+                            item.EstimatedBytes = after.Bytes;
+                            item.FileCount = after.FileCount;
+                            continue;
+                        }
+
+                        if (item.Definition.Alvos.Count > 0)
+                        {
+                            long bytesHere = 0;
+                            int filesHere = 0;
+                            DeleteFilesForRule(item.Definition, ref bytesHere, ref filesHere, ct);
+                            totalBytes += bytesHere;
+                            totalFiles += filesHere;
+                            executed++;
+                            var after = ScanRule(item.Definition);
+                            item.EstimatedBytes = after.Bytes;
+                            item.FileCount = after.FileCount;
+                        }
+                    }
+                    finally
+                    {
+                        foreach (var svc in stoppedServices)
+                        {
+                            try { RunTool("net.exe", $"start \"{svc}\"", CancellationToken.None); } catch { }
+                        }
                     }
                 }
 

@@ -106,6 +106,8 @@
     "descricao": "Cópias de atualizações que o Windows guarda para enviar a outros PCs da rede. Pode apagar.",
     "nivel": "seguro",
     "recomendado": true,
+    "especial": "otimizacao-entrega",
+    "servicos": [ "dosvc" ],
     "alvos": [
       { "caminho": "%SystemRoot%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache" },
       { "caminho": "%SystemRoot%\\SoftwareDistribution\\DeliveryOptimization" }

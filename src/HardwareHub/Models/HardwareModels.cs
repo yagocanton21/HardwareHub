@@ -8,10 +8,14 @@ namespace HardwareHub.Models
         public double UsagePercentage { get; set; }
         public double Temperature { get; set; }
         public double ClockSpeedGhz { get; set; }
+        public double PeakClockSpeedGhz { get; set; }
 
         public string FormattedTemperature => Temperature > 0 ? $"{Temperature:F0} °C" : "-- °C";
         public string FormattedUsage => $"{UsagePercentage:F0}%";
         public string FormattedClock => ClockSpeedGhz > 0 ? $"{ClockSpeedGhz:F2} GHz" : "--";
+        public string ClockTooltip => PeakClockSpeedGhz > 0 && Math.Abs(PeakClockSpeedGhz - ClockSpeedGhz) >= 0.05
+            ? $"Frequência média: {ClockSpeedGhz:F2} GHz (todos os núcleos)\nPico no núcleo mais rápido: {PeakClockSpeedGhz:F2} GHz"
+            : (ClockSpeedGhz > 0 ? $"Frequência atual: {ClockSpeedGhz:F2} GHz" : "Frequência não disponível");
     }
 
     public class GpuMetrics

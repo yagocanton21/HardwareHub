@@ -390,6 +390,25 @@ namespace HardwareHub.Tests
             }
         }
 
+        [Fact]
+        public void FakeCapacityService_TranslatesPagingAndIoErrors_ToFriendlyDefectiveVerdict()
+        {
+            var pagingEx = new IOException("Erro na operação de paginação. : 'F:\\probe.bin'");
+            var (verdictPaging, msgPaging) = FakeCapacityService.TranslateException(pagingEx);
+            Assert.Equal(FakeCapacityVerdict.Defective, verdictPaging);
+            Assert.Contains("Falha de hardware no pendrive", msgPaging, StringComparison.OrdinalIgnoreCase);
+
+            var crcEx = new IOException("Erro de verificação CRC nos dados");
+            var (verdictCrc, msgCrc) = FakeCapacityService.TranslateException(crcEx);
+            Assert.Equal(FakeCapacityVerdict.Defective, verdictCrc);
+            Assert.Contains("CRC", msgCrc, StringComparison.OrdinalIgnoreCase);
+
+            var genericEx = new InvalidOperationException("Algum erro lógico qualquer");
+            var (verdictGen, msgGen) = FakeCapacityService.TranslateException(genericEx);
+            Assert.Equal(FakeCapacityVerdict.Inconclusive, verdictGen);
+            Assert.Equal("Algum erro lógico qualquer", msgGen);
+        }
+
         // ===================== 4. TESTES STA WPF UI & NAVEGAÇÃO PHASE 4 =====================
 
         [Fact]

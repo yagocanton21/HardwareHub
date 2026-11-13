@@ -104,7 +104,11 @@ namespace HardwareHub.Services
         public static string SummarizeFragmentation(OptimizableVolumeModel volume, int percent, bool trimEnabled)
         {
             if (percent < 0)
-                return "Não foi possível medir a fragmentação (execute como Administrador).";
+            {
+                return volume.IsSsd
+                    ? "Unidade SSD (análise de fragmentação tradicional não necessária — use TRIM/Otimizar)."
+                    : "Não foi possível medir a fragmentação (execute como Administrador).";
+            }
 
             if (volume.IsSsd)
             {

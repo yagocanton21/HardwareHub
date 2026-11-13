@@ -195,12 +195,20 @@
                                 </Style>
                             </Grid.Style>
 
-                            <!-- Selo Já instalado -->
-                            <Border HorizontalAlignment="Left" Background="#172A45" BorderBrush="#1E40AF" BorderThickness="1"
-                                    CornerRadius="6" Padding="8,3"
-                                    Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="✓ Já instalado" FontSize="11" FontWeight="SemiBold" Foreground="#60A5FA" />
-                            </Border>
+                            <!-- Selo Já instalado com botão Abrir -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVis}}">
+                                <Border HorizontalAlignment="Left" Background="#172A45" BorderBrush="#1E40AF" BorderThickness="1"
+                                        CornerRadius="6" Padding="8,3" Margin="0,0,6,0">
+                                    <TextBlock Text="✓ Já instalado" FontSize="11" FontWeight="SemiBold" Foreground="#60A5FA" />
+                                </Border>
+                                <Button Command="{Binding DataContext.LaunchProgramCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Content="Abrir" Cursor="Hand"
+                                        Background="#1E293B" Foreground="#E2E8F0" BorderThickness="1" BorderBrush="#334155"
+                                        Padding="8,2" FontSize="11" FontWeight="SemiBold"
+                                        ToolTip="Abrir este programa no Windows" />
+                            </StackPanel>
 
                             <!-- Mensagem de erro caso tenha falhado -->
                             <TextBlock Text="{Binding InstallStatusText}" FontSize="11" Foreground="#F87171"

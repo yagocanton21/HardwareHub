@@ -154,9 +154,16 @@ namespace HardwareHub.ViewModels
 
         public bool HasReport => LastReport != null;
 
-        public string RealCapacityFormatted => LastReport != null && LastReport.RealBytes > 0
-            ? InstalledProgramItem.FormatBytes(LastReport.RealBytes)
-            : "—";
+        public string RealCapacityFormatted
+        {
+            get
+            {
+                if (LastReport == null) return "—";
+                if (LastReport.Verdict == FakeCapacityVerdict.Inconclusive) return "Não avaliada (interrompido)";
+                if (LastReport.Verdict == FakeCapacityVerdict.Defective && LastReport.RealBytes == 0) return "Não avaliada (falha de hardware/E/S)";
+                return LastReport.RealBytes > 0 ? InstalledProgramItem.FormatBytes(LastReport.RealBytes) : "—";
+            }
+        }
 
         public string SpeedSummaryText => LastReport == null
             ? ""

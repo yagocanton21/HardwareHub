@@ -355,6 +355,7 @@ public sealed class AppsCatalogViewModel : INotifyPropertyChanged
         InstallSelectedCommand = new RelayCommand(async _ => await InstallSelectedQueueAsync(), _ => SelectedCount > 0 && !IsInstallingQueue);
         CancelQueueCommand = new RelayCommand(_ => CancelQueue(), _ => IsInstallingQueue);
         OpenLinkCommand = new RelayCommand(p => { if (p is AppCardViewModel card) OpenExternalLink(card); });
+        LaunchProgramCommand = new RelayCommand(p => { if (p is AppCardViewModel card) LaunchProgram(card); });
         CopyCouponCommand = new RelayCommand(async p => { if (p is AppCardViewModel card) await CopyCouponAsync(card); });
         RefreshStatusCommand = new RelayCommand(async _ => await RefreshInstalledStatusAsync(), _ => !IsRefreshingStatus);
         RepairWingetCommand = new RelayCommand(async _ => await RepairWingetAsync());
@@ -377,6 +378,7 @@ public sealed class AppsCatalogViewModel : INotifyPropertyChanged
     public ICommand InstallSelectedCommand { get; }
     public ICommand CancelQueueCommand { get; }
     public ICommand OpenLinkCommand { get; }
+    public ICommand LaunchProgramCommand { get; }
     public ICommand CopyCouponCommand { get; }
     public ICommand RefreshStatusCommand { get; }
     public ICommand RepairWingetCommand { get; }
@@ -640,6 +642,11 @@ public sealed class AppsCatalogViewModel : INotifyPropertyChanged
                 }
 
                 card.IsInstalled = installed;
+                if (installed && !card.IsLink)
+                {
+                    AppCatalogService.EnsureStartMenuShortcutForPackage(card.Definition);
+                }
+
                 if (!card.HasFailed)
                 {
                     card.InstallStatusText = installed ? "Já instalado" : "Disponível";
@@ -677,6 +684,17 @@ public sealed class AppsCatalogViewModel : INotifyPropertyChanged
         }
 
         card.IsSelected = !card.IsSelected;
+    }
+
+    public void LaunchProgram(AppCardViewModel card)
+    {
+        if (card.IsLink)
+        {
+            OpenExternalLink(card);
+            return;
+        }
+
+        AppCatalogService.TryLaunchProgram(card.Definition);
     }
 
     public void ToggleKit(AppKitCardViewModel kit)

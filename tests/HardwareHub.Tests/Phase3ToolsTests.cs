@@ -523,6 +523,29 @@ namespace HardwareHub.Tests
             var btnLeft = btn.TranslatePoint(new Point(0, 0), root).X;
             Assert.True(subRight <= btnLeft + 0.5, $"Subtítulo encostando/sobrepondo botão '{btn.Content}': subRight={subRight}, btnLeft={btnLeft}");
         }
+
+        [Fact]
+        public void CpuMetrics_ClockAndTooltip_CalculatesAverageAndPeakProperly()
+        {
+            var cpu = new CpuMetrics
+            {
+                ClockSpeedGhz = 2.54,
+                PeakClockSpeedGhz = 4.32
+            };
+
+            Assert.Equal("2,54 GHz", cpu.FormattedClock);
+            Assert.Contains("2,54 GHz", cpu.ClockTooltip);
+            Assert.Contains("4,32 GHz", cpu.ClockTooltip);
+            Assert.Contains("Pico no núcleo mais rápido", cpu.ClockTooltip);
+
+            // Quando pico e média forem iguais ou muito próximos (ex: carga 100% all-core)
+            var cpuUniform = new CpuMetrics
+            {
+                ClockSpeedGhz = 3.40,
+                PeakClockSpeedGhz = 3.40
+            };
+            Assert.Equal("Frequência atual: 3,40 GHz", cpuUniform.ClockTooltip);
+        }
     }
 }
 

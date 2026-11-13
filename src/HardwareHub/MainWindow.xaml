@@ -470,7 +470,8 @@
                                 <ProgressBar Grid.Row="2" Value="{Binding Cpu.UsagePercentage}" Maximum="100" Height="6" Margin="0,8,0,4"
                                              Foreground="#6366F1" Background="#27272A" BorderThickness="0" />
 
-                                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0"
+                                            ToolTip="{Binding Cpu.ClockTooltip}" Cursor="Help">
                                     <TextBlock Text="Clock: " FontSize="11" Foreground="#71717A" />
                                     <TextBlock Text="{Binding Cpu.FormattedClock}" FontSize="11" Foreground="#A1A1AA" FontWeight="SemiBold" />
                                 </StackPanel>

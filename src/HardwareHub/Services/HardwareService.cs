@@ -406,6 +406,9 @@ namespace HardwareHub.Services
                                 }
                             }
 
+                            var coreClocks = new List<double>();
+                            var fallbackClocks = new List<double>();
+
                             foreach (var sensor in hw.Sensors)
                             {
                                 if (sensor.SensorType == SensorType.Load)
@@ -419,12 +422,26 @@ namespace HardwareHub.Services
                                 {
                                     if (sensor.Value.HasValue && sensor.Value.Value > 300)
                                     {
-                                        if (cpu.ClockSpeedGhz <= 0 || sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase))
+                                        double ghz = sensor.Value.Value / 1000.0;
+                                        if (sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase))
                                         {
-                                            cpu.ClockSpeedGhz = Math.Max(cpu.ClockSpeedGhz, sensor.Value.Value / 1000.0);
+                                            coreClocks.Add(ghz);
+                                        }
+                                        else
+                                        {
+                                            fallbackClocks.Add(ghz);
                                         }
                                     }
                                 }
+                            }
+
+                            var targetClocks = coreClocks.Count > 0 ? coreClocks : fallbackClocks;
+                            if (targetClocks.Count > 0)
+                            {
+                                // Frequência média de todos os núcleos operantes (alinha com o Gerenciador de Tarefas do Windows)
+                                cpu.ClockSpeedGhz = Math.Round(targetClocks.Average(), 2);
+                                // Pico no núcleo mais rápido (boost single-core)
+                                cpu.PeakClockSpeedGhz = Math.Round(targetClocks.Max(), 2);
                             }
                         }
                         else if (hw.HardwareType == HardwareType.GpuNvidia || hw.HardwareType == HardwareType.GpuAmd || hw.HardwareType == HardwareType.GpuIntel)
@@ -598,6 +615,10 @@ namespace HardwareHub.Services
             if (cpu.ClockSpeedGhz <= 0 && _cachedCpuClockSpeedGhz > 0)
             {
                 cpu.ClockSpeedGhz = _cachedCpuClockSpeedGhz;
+            }
+            if (cpu.PeakClockSpeedGhz <= 0)
+            {
+                cpu.PeakClockSpeedGhz = cpu.ClockSpeedGhz;
             }
 
             return (cpu, gpu, ram, disks, system);

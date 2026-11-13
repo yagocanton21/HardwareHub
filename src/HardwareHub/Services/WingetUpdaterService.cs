@@ -131,12 +131,21 @@ namespace HardwareHub.Services
                 var (exitCode, stdout) = await RunProcessCaptureAsync(winget, args, logProgress, ct);
                 uint uCode = unchecked((uint)exitCode);
 
-                bool ok = exitCode == 0 || uCode == 0x8A15010B; // 0x8A15010B = no applicable update found / already up to date
+                bool ok = exitCode == 0 ||
+                          uCode == 0x8A15010B ||
+                          uCode == 0x8A15002B ||
+                          uCode == 0x8A150061 ||
+                          uCode == 0x8A150079; // 0x8A150079 = reboot required / 0x8A15010B = up to date
                 if (ok)
                 {
                     item.IsUpdated = true;
                     item.IsSelected = false;
-                    item.StatusMessage = uCode == 0x8A15010B ? "Já atualizado" : "Atualizado";
+                    item.StatusMessage = uCode switch
+                    {
+                        0x8A150079 => "Atualizado (reinicie para concluir)",
+                        0x8A15010B or 0x8A15002B or 0x8A150061 => "Já atualizado",
+                        _ => "Atualizado"
+                    };
                     return (true, item.StatusMessage);
                 }
 

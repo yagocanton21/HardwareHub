@@ -4,6 +4,7 @@ using System.Management;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
 using HardwareHub.Models;
+using Microsoft.Win32;
 
 namespace HardwareHub.Services
 {
@@ -470,9 +471,22 @@ namespace HardwareHub.Services
             try
             {
                 var type = Type.GetTypeFromProgID("Microsoft.Update.SystemInfo");
-                if (type == null) return false;
-                dynamic sysInfo = Activator.CreateInstance(type)!;
-                return (bool)sysInfo.RebootRequired;
+                if (type != null)
+                {
+                    dynamic sysInfo = Activator.CreateInstance(type)!;
+                    if ((bool)sysInfo.RebootRequired) return true;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                using var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                using var cbs = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending");
+                using var wu = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
+                return cbs != null || wu != null;
             }
             catch
             {
