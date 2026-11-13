@@ -409,6 +409,15 @@ namespace HardwareHub.Tests
             Assert.Equal("Algum erro lógico qualquer", msgGen);
         }
 
+        [Fact]
+        public void FakeCapacityViewModel_FormatDuration_FormatsMinutesAndSecondsClearly()
+        {
+            Assert.Equal("15s", FakeCapacityViewModel.FormatDuration(TimeSpan.FromSeconds(15.2)));
+            Assert.Equal("7m 37s", FakeCapacityViewModel.FormatDuration(TimeSpan.FromSeconds(457.1)));
+            Assert.Equal("1m 00s", FakeCapacityViewModel.FormatDuration(TimeSpan.FromSeconds(60)));
+            Assert.Equal("1h 16m 11s", TimeSpan.FromSeconds(4571).ToString(@"h\h\ mm\m\ ss\s")); // contraste do bug de formatação anterior
+        }
+
         // ===================== 4. TESTES STA WPF UI & NAVEGAÇÃO PHASE 4 =====================
 
         [Fact]

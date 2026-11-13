@@ -167,7 +167,14 @@ namespace HardwareHub.ViewModels
 
         public string SpeedSummaryText => LastReport == null
             ? ""
-            : $"Escrita: {LastReport.WriteSpeedMBps:0.0} MB/s • Leitura: {LastReport.ReadSpeedMBps:0.0} MB/s • Duração: {LastReport.Duration.TotalSeconds:0.1}s";
+            : $"Escrita: {LastReport.WriteSpeedMBps:0.0} MB/s • Leitura: {LastReport.ReadSpeedMBps:0.0} MB/s • Duração: {FormatDuration(LastReport.Duration)}";
+
+        public static string FormatDuration(TimeSpan duration)
+        {
+            if (duration.TotalMinutes >= 1)
+                return $"{(int)duration.TotalMinutes}m {duration.Seconds:D2}s";
+            return $"{Math.Max(1, (int)Math.Round(duration.TotalSeconds))}s";
+        }
 
         public string StatsSummaryText => LastReport == null
             ? ""
